@@ -2,7 +2,9 @@
 
 ## Instructions
 
-Now that you've learned about OxCaml's mode system, let's revisit the problems from Activity 1 and see how OxCaml solves them. We'll use the same code examples but with OxCaml's compile-time guarantees.
+Now that you've learned about OxCaml's mode system, let's revisit the problems
+from Activity 1 and see how OxCaml solves them. We'll use the same code
+examples but with OxCaml's compile-time guarantees.
 
 Compare your answers from Activity 1 with the solutions OxCaml provides!
 
@@ -31,7 +33,6 @@ let average_par (par : Parallel.t) tree =
     match tree with
     | Tree.Leaf x -> ~total:(Thing.price x), ~count:1
     | Tree.Node (l, r) ->
-      (* Safe parallelism with fork_join2! *)
       let ( (~total:total_l, ~count:count_l),
             (~total:total_r, ~count:count_r) ) =
         Parallel.fork_join2 par
@@ -163,7 +164,10 @@ let concurrent_counter () =
 
 #### Why Atomics Work: Mode Crossing
 
-From the tutorial: "Atomic references mode cross both contention and portability, meaning they are always uncontended and always portable, regardless of the kind of the ['a] type parameter."
+Atomic references mode cross both contention and portability, meaning they are
+always uncontended and always portable, regardless of the kind of the `['a]`
+type parameter.
+
 
 This is why `Atomic.t` solves the parallelism problem:
 - **Always `uncontended`**: Multiple domains can access atomically without data races
@@ -215,7 +219,7 @@ let make_pure_accumulator init =
 
 #### The Portable Rules
 
-From the tutorial, there are four key rules for `portable`:
+There are four key rules for `portable`:
 
 **Rule 1 (Safety)**: Only a `portable` value is safe to access from outside the domain that created it.
 
@@ -272,7 +276,7 @@ Immutable arrays have the `immutable_data` kind, which provides **mode crossing*
 - **Crosses portability**: Can be passed between domains safely
 - **Crosses contention**: Multiple domains can access without `uncontended` requirement
 
-From the tutorial's mode crossing table:
+From the mode crossing table:
 ```
 | Kind           | Constraint                    | Crosses  |
 | immutable_data | no functions or mutable fields, deeply | portability, contention |
@@ -333,7 +337,7 @@ let (P key) = Capsule.create () in      (* unique key *)
 let key = Capsule.Key.share key in      (* now aliased -> shared access *)
 ```
 
-From the tutorial: "When a capsule key is aliased, accessing the capsule provides `shared` rather than `uncontended` access to the data."
+When a capsule key is aliased, accessing the capsule provides `shared` rather than `uncontended` access to the data.
 
 ---
 
@@ -470,9 +474,12 @@ type mutable_record : mutable_data = { mutable x: int }
 
 ### The Safety Guarantee
 
-Every parallel program that compiles is **sequentially consistent**. You can reason about it by considering all possible sequential interleavings of domain actions. No "impossible" states due to data races.
+Every parallel program that compiles is **sequentially consistent**. You can
+reason about it by considering all possible sequential interleavings of domain
+actions. No "impossible" states due to data races.
 
-From the tutorial: "Data-race freedom gives us back the power to reason intuitively about our code, no matter how buggy it might get."
+Data-race freedom gives us back the power to reason intuitively about our code,
+no matter how buggy it might get.
 
 ---
 

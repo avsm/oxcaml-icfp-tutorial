@@ -1,0 +1,319 @@
+# OxCaml Language Model Context
+
+OxCaml is Jane Street's enhanced version of OCaml that adds numerous performance and safety features while maintaining OCaml compatibility. This document provides comprehensive guidance for code generation and porting OCaml code to OxCaml.
+
+## Core OxCaml Philosophy
+
+OxCaml extends OCaml with:
+- **Zero-allocation programming**: Stack allocation, unboxed types, comprehensive optimization
+- **Parallelism with safety**: Data-race-free parallel programming through modes
+- **Fine-grained control**: Modes, kinds, uniqueness for memory and performance optimization
+- **Enhanced expressiveness**: Comprehensions, SIMD, templates for better abstractions
+
+## Quick Reference: Key Extensions
+
+### Stack Allocation (`local` mode)
+- Use `@ local` for values that don't escape scope
+- Enables stack allocation, reducing GC pressure
+- Use `exclave_` to return local values from functions
+- `stack_` forces stack allocation (fails if impossible)
+
+### Unboxed Types (layouts)
+- `float#`, `int32#`, `int64#` for unboxed numeric types
+- Literals: `#3.14` (float#), `#123l` (int32#), `#456L` (int64#)
+- Unboxed records: `#{ field = value }`
+- Unboxed tuples: `#(a, b, c)`
+
+### Parallelism
+- Use `Parallel.fork_join2` for parallel computation
+- Mark data `@ portable` for cross-domain sharing
+- Use `@ contended` for thread-safe mutable data
+- Capsules for complex shared mutable state
+
+### Comprehensions
+- List: `[ expr for pat in seq when cond ]`
+- Array: `[| expr for pat in seq when cond |]`
+- Range iteration: `for i = 1 to n`
+- Parallel iteration: `for x in xs and y in ys`
+
+### SIMD
+- Vector types: `float32x4#`, `int32x4#`, etc.
+- Load from memory: `Float32x4.String.get`
+- Operations: `Float32x4.add`, `Float32x4.mul`
+- Use `[@unboxed]` for C interop
+
+## Mode System Reference
+
+### Locality Axis (scope)
+- `global` (default): May escape scope
+- `local`: Cannot escape scope, enables stack allocation
+
+### Contention Axis (thread safety)
+- `uncontended` (default): Single thread access
+- `shared`: Multiple threads read-only
+- `contended`: Multiple threads with writes
+
+### Portability Axis (thread movement)
+- `nonportable` (default): Cannot move between threads
+- `portable`: May move across thread boundaries
+
+### Uniqueness Axis (aliasing)
+- `aliased` (default): Multiple references
+- `unique`: Single reference only
+
+### Other Axes
+- Linearity: `many` (default) vs `once` (single use)
+- Yielding: `unyielding` (default) vs `yielding` (effects)
+- Visibility: `read_write` (default) vs `read` vs `immutable`
+- Statefulness: `stateful` (default) vs `observing` vs `stateless`
+
+## Kind System Reference
+
+### Layouts
+- `value`: Standard OCaml values
+- `immediate`: Int-like types
+- `float64`, `float32`: Unboxed floats
+- `bits64`, `bits32`: Unboxed integers
+- `word`: Machine word
+- `vec128`, `vec256`: SIMD vectors
+- `any`: Maximum layout
+
+### Kind Abbreviations
+- `immediate`: Values like `int`, `bool`
+- `immutable_data`: Plain immutable data
+- `mutable_data`: Plain mutable data
+- `any_non_null`: Any layout excluding NULL
+
+## Migration Guidelines: OCaml to OxCaml
+
+### 1. Performance Optimization
+
+**Stack Allocation:**
+```ocaml
+(* Before *)
+let process data =
+  let temp = expensive_computation data in
+  extract_result temp
+
+(* After *)
+let process data =
+  let temp @ local = expensive_computation data in
+  extract_result temp
+```
+
+**Unboxed Numeric Code:**
+```ocaml
+(* Before *)
+let distance x1 y1 x2 y2 =
+  sqrt ((x2 -. x1) ** 2.0 +. (y2 -. y1) ** 2.0)
+
+(* After *)
+let distance x1 y1 x2 y2 =
+  Float_u.sqrt (Float_u.add 
+    (Float_u.pow (Float_u.sub x2 x1) #2.0)
+    (Float_u.pow (Float_u.sub y2 y1) #2.0))
+```
+
+**Array Processing with SIMD:**
+```ocaml
+(* Before *)
+let add_arrays a b = Array.map2 (+.) a b
+
+(* After *)
+module F32x4 = Ocaml_simd_sse.Float32x4
+let add_vectors v1 v2 = F32x4.add v1 v2
+```
+
+### 2. Parallel Programming
+
+**Basic Parallelism:**
+```ocaml
+(* Before *)
+let map_reduce f reduce_f init list =
+  List.fold_left (fun acc x -> reduce_f acc (f x)) init list
+
+(* After *)
+let parallel_map_reduce par f reduce_f init list =
+  let process chunk =
+    List.fold_left (fun acc x -> reduce_f acc (f x)) init chunk
+  in
+  match list with
+  | [] -> init
+  | _ ->
+    let mid = List.length list / 2 in
+    let left, right = List.split_at mid list in
+    let left_result, right_result =
+      Parallel.fork_join2 par
+        (fun _ -> process left)
+        (fun _ -> process right)
+    in
+    reduce_f left_result right_result
+```
+
+**Shared Mutable State:**
+```ocaml
+(* Before *)
+let shared_counter = ref 0
+let increment () = incr shared_counter
+
+(* After *)
+let shared_counter = Atomic.make 0
+let increment () = Atomic.incr shared_counter
+```
+
+### 3. Loop Transformation
+
+**Comprehensions:**
+```ocaml
+(* Before *)
+let result = ref [] in
+for i = 1 to n do
+  for j = 1 to m do
+    if condition i j then
+      result := (f i j) :: !result
+  done
+done;
+List.rev !result
+
+(* After *)
+[ f i j for i = 1 to n for j = 1 to m when condition i j ]
+```
+
+**Filter + Map:**
+```ocaml
+(* Before *)
+list |> List.filter predicate |> List.map transform
+
+(* After *)
+[ transform x for x in list when predicate x ]
+```
+
+### 4. Memory Management
+
+**Unique Resources:**
+```ocaml
+(* Define safe resource management *)
+type buffer : value
+
+val create : size:int -> buffer @ unique
+val free : buffer @ unique -> unit
+val write : buffer @ unique -> string -> buffer @ unique
+
+(* Use with functional threading *)
+let process_data size data =
+  create ~size
+  |> write data
+  |> write " processed"
+  |> fun buf -> let result = extract buf in free buf; result
+```
+
+**Immutable Arrays:**
+```ocaml
+(* Before *)
+let readonly_data = [| 1; 2; 3; 4 |]
+
+(* After *)
+let readonly_data = [: 1; 2; 3; 4 :]
+```
+
+## Syntax Patterns
+
+### Mode Annotations
+```ocaml
+let func (param @ local) : result @ local = ...
+let value : type @ modes = ...
+let (pattern @ modes) = expression
+function_name @ modes arg1 arg2
+```
+
+### Kind Annotations
+```ocaml
+type ('a : float64) vector
+val process : ('a : immediate) -> unit
+let func (type (a : value) (b : bits32)) (x : a) (y : b) = ...
+```
+
+### Templates (for mode/kind polymorphism)
+```ocaml
+let%template[@mode m = (global, local)] identity
+  : 'a. 'a @ m -> 'a @ m = fun x -> x
+
+module%template[@kind k = (value, float64)] Math = struct
+  let add x y = (Float.add [@kind k]) x y
+end
+```
+
+### Unboxed Type Usage
+```ocaml
+(* Literals *)
+let pi = #3.14159  (* float# *)
+let count = #42l   (* int32# *)
+
+(* Records *)
+type point = #{ x : float#; y : float# }
+let origin = #{ x = #0.0; y = #0.0 }
+
+(* Tuples *)
+let coords = #(#1.0, #2.0, #3.0)
+```
+
+## Error Handling Patterns
+
+### Zero Allocation Checking
+```ocaml
+let[@zero_alloc] fast_math x y = x + y * 2
+let[@zero_alloc assume] external_func x = C.some_func x
+```
+
+### Custom Error Messages
+```ocaml
+let process (x : (_ : immediate)[@error_message "requires immediate type"]) = x
+```
+
+## Performance Considerations
+
+1. **Stack vs Heap**: Use `@ local` for temporary values
+2. **Unboxed vs Boxed**: Use unboxed types (`#` suffix) for numeric code
+3. **Parallel vs Sequential**: Use `Parallel.fork_join2` for independent tasks
+4. **SIMD**: Use vector types for data-parallel numeric operations
+5. **Zero Allocation**: Mark performance-critical code with `[@zero_alloc]`
+6. **Immutable Arrays**: Use `[: ... :]` for read-only data
+
+## Common Pitfalls
+
+### Stack Allocation
+- Don't use `@ local` values in tail calls (use `[@nontail]`)
+- Avoid partial application with local parameters
+- Thread unique values through function calls, don't store in loops
+
+### Parallelism
+- Mark shared data as `@ portable contended`
+- Use capsules for complex mutable state
+- Ensure functions are `@ portable` for parallel use
+
+### Unboxed Types
+- Can't be used in tuples or variant constructors (current limitation)
+- Limited container type support
+- No polymorphic operations (comparison, marshaling)
+
+### Templates
+- Use locally abstract types for multiple kinds
+- Prefer mono-attributes for instantiation
+- Test all generated template instances
+
+## Library Usage
+
+### Key Libraries
+- `Parallel`: Parallel computation primitives
+- `Atomic`: Thread-safe atomic operations
+- `Float_u`, `Int32_u`, etc.: Unboxed numeric operations
+- `ocaml_simd`: SIMD vector operations
+- `Capsule`: Safe sharing of mutable state
+
+### Common Imports
+```ocaml
+open Parallel.Std
+module F32x4 = Ocaml_simd_sse.Float32x4
+```
+
+This reference enables effective OxCaml code generation that leverages the language's advanced features while maintaining safety and performance.

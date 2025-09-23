@@ -1,0 +1,2 @@
+(executables
+ (names tree_average quicksort array_sum))

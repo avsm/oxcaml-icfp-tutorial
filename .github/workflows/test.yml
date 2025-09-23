@@ -23,8 +23,8 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-version }}
           opam-repositories:
-          - default: https://github.com/ocaml/opam-repository.git
-          - ox: git+https://github.com/oxcaml/opam-repository.git
+            default: https://github.com/ocaml/opam-repository.git
+            ox: git+https://github.com/oxcaml/opam-repository.git
 
       - name: Build Act 1
         run: (cd act1 && dune build @all)

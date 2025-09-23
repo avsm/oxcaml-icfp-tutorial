@@ -26,6 +26,9 @@ jobs:
             default: https://github.com/ocaml/opam-repository.git
             ox: git+https://github.com/oxcaml/opam-repository.git
 
+      - name: Dependencies
+        run: opam install -y core parallel 
+
       - name: Build Act 1
         run: (cd act1 && dune build @all)
 

@@ -30,7 +30,7 @@ jobs:
         run: opam install -y core parallel 
 
       - name: Build Act 1
-        run: (cd act1 && opam exec -- dune build @all)
+        run: opam exec -- dune build act1/
 
       - name: Build Act 2
-        run: (cd act2 && opam exec -- dune build @all)
+        run: opam exec -- dune build act2/

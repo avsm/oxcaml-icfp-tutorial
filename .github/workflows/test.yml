@@ -1,0 +1,33 @@
+name: OxCaml
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    name: Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ocaml-version: ["5.2.0+ox"]
+        operating-system: [macos-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.operating-system }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Use OCaml ${{ matrix.ocaml-version }}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-version }}
+          opam-repositories:
+          - default: https://github.com/ocaml/opam-repository.git
+          - ox: git+https://github.com/oxcaml/opam-repository.git
+
+      - name: Build Act 1
+        run: (cd act1 && dune build @all)
+
+      - name: Build Act 2
+        run: (cd act2 && dune build @all)

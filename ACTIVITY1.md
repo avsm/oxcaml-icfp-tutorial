@@ -18,36 +18,62 @@ Keep your answers for comparison with Activity 2, where we'll see how OxCaml sol
 Consider this tree averaging implementation:
 
 ```ocaml
-(* Run this code in act1/tree_average.ml *)
-module Tree = struct
-  type 'a t =
-    | Leaf of 'a
-    | Node of 'a t * 'a t
-end
+# module Tree = struct
+    type 'a t =
+      | Leaf of 'a
+      | Node of 'a t * 'a t
+  end;;
+module Tree : sig type 'a t = Leaf of 'a | Node of 'a t * 'a t end
 
-module Thing = struct
-  type t = {
-    price : float;
-    mutable mood : string
-  }
+# module Thing = struct
+    type t = {
+      price : float;
+      mutable mood : string
+    }
 
-  let create ~price ~mood = { price; mood }
-  let price t = t.price
-  let mood t = t.mood
-  let cheer_up t = t.mood <- "Happy"
-end
+    let create ~price ~mood = { price; mood }
+    let price t = t.price
+    let mood t = t.mood
+    let cheer_up t = t.mood <- "Happy"
+  end;;
+module Thing :
+  sig
+    type t = { price : float; mutable mood : string; }
+    val create : price:float -> mood:string -> t
+    val price : t -> float
+    val mood : t -> string
+    val cheer_up : t -> unit
+  end
 
-let average tree =
-  let rec total tree =
-    match tree with
-    | Tree.Leaf x -> (Thing.price x, 1)
-    | Tree.Node (l, r) ->
-      let (total_l, count_l) = total l in
-      let (total_r, count_r) = total r in
-      (total_l +. total_r, count_l + count_r)
-  in
-  let (total, count) = total tree in
-  total /. float_of_int count
+# let average tree =
+    let rec total tree =
+      match tree with
+      | Tree.Leaf x -> (Thing.price x, 1)
+      | Tree.Node (l, r) ->
+        let (total_l, count_l) = total l in
+        let (total_r, count_r) = total r in
+        (total_l +. total_r, count_l + count_r)
+    in
+    let (total, count) = total tree in
+    total /. Float.of_int count;;
+val average : Thing.t Tree.t -> float = <fun>
+
+# (* Example usage *)
+  let test_tree =
+    Tree.Node (
+      Tree.Leaf (Thing.create ~price:10.0 ~mood:"Happy"),
+      Tree.Node (
+        Tree.Leaf (Thing.create ~price:20.0 ~mood:"Sad"),
+        Tree.Leaf (Thing.create ~price:30.0 ~mood:"Neutral")
+      )
+    );;
+val test_tree : Thing.t Tree.t =
+  Tree.Node (Tree.Leaf {Thing.price = 10.; mood = "Happy"},
+   Tree.Node (Tree.Leaf {Thing.price = 20.; mood = "Sad"},
+    Tree.Leaf {Thing.price = 30.; mood = "Neutral"}))
+
+# average test_tree;;
+- : float = 20.
 ```
 
 Now imagine trying to parallelize this:
@@ -68,6 +94,11 @@ let average_parallel tree =
   in
   total tree
 ```
+```mdx-error
+Line 8, characters 34-66:
+Error: This expression has type (float * int) Domain.t
+       but an expression was expected of type 'a * 'b
+```
 
 ### Questions:
 
@@ -84,29 +115,40 @@ let average_parallel tree =
 ## Problem 2: Mutable State and Race Conditions
 
 ```ocaml
-(* Run this in act1/quicksort.ml *)
-let partition arr low high =
-  let pivot = arr.(high) in
-  let i = ref (low - 1) in
-  for j = low to high - 1 do
-    if arr.(j) < pivot then begin
-      incr i;
-      let temp = arr.(!i) in
-      arr.(!i) <- arr.(j);
-      arr.(j) <- temp
-    end
-  done;
-  let temp = arr.(!i + 1) in
-  arr.(!i + 1) <- arr.(high);
-  arr.(high) <- temp;
-  !i + 1
+# let partition arr low high =
+    let pivot = arr.(high) in
+    let i = ref (low - 1) in
+    for j = low to high - 1 do
+      if arr.(j) < pivot then begin
+        Int.incr i;
+        let temp = arr.(!i) in
+        arr.(!i) <- arr.(j);
+        arr.(j) <- temp
+      end
+    done;
+    let temp = arr.(!i + 1) in
+    arr.(!i + 1) <- arr.(high);
+    arr.(high) <- temp;
+    !i + 1;;
+val partition : int array -> int -> int -> int = <fun>
 
-let rec quicksort arr low high =
-  if low < high then begin
-    let pi = partition arr low high in
-    quicksort arr low (pi - 1);
-    quicksort arr (pi + 1) high
-  end
+# let rec quicksort arr low high =
+    if low < high then begin
+      let pi = partition arr low high in
+      quicksort arr low (pi - 1);
+      quicksort arr (pi + 1) high
+    end;;
+val quicksort : int array -> int -> int -> unit = <fun>
+
+# (* Example usage *)
+  let arr = [| 3; 1; 4; 1; 5; 9; 2; 6; 5 |];;
+val arr : int array = [|3; 1; 4; 1; 5; 9; 2; 6; 5|]
+
+# quicksort arr 0 (Array.length arr - 1);;
+- : unit = ()
+
+# arr;;
+- : int array = [|1; 1; 2; 3; 4; 5; 5; 6; 9|]
 ```
 
 Attempting to parallelize the recursive calls:
@@ -137,33 +179,41 @@ let rec quicksort_parallel arr low high =
 ## Problem 3: Shared Counters and Atomics
 
 ```ocaml
-let counter = ref 0
+# let counter = ref 0;;
+val counter : int ref = {Base.Ref.contents = 0}
 
-let increment n =
-  for i = 1 to n do
-    counter := !counter + 1
-  done
+# let increment n =
+    for i = 1 to n do
+      counter := !counter + 1
+    done;;
+val increment : int -> unit = <fun>
 
-let parallel_increment () =
-  let d1 = Domain.spawn (fun () -> increment 1000) in
-  let d2 = Domain.spawn (fun () -> increment 1000) in
-  Domain.join d1;
-  Domain.join d2;
-  !counter
+# (* This would have race conditions if run in parallel: *)
+  let parallel_increment () =
+    let d1 = Domain.spawn (fun () -> increment 1000) in
+    let d2 = Domain.spawn (fun () -> increment 1000) in
+    Domain.join d1;
+    Domain.join d2;
+    !counter;;
+val parallel_increment : unit -> int = <fun>
 ```
 
 Attempted fix with a lock:
 
 ```ocaml
-let mutex = Mutex.create ()
-let safe_counter = ref 0
+# let mutex = Stdlib.Mutex.create ();;
+val mutex : Mutex.t = <abstr>
 
-let increment_with_lock n =
-  for i = 1 to n do
-    Mutex.lock mutex;
-    safe_counter := !safe_counter + 1;
-    Mutex.unlock mutex
-  done
+# let safe_counter = ref 0;;
+val safe_counter : int ref = {Base.Ref.contents = 0}
+
+# let increment_with_lock n =
+    for i = 1 to n do
+      Stdlib.Mutex.lock mutex;
+      safe_counter := !safe_counter + 1;
+      Stdlib.Mutex.unlock mutex
+    done;;
+val increment_with_lock : int -> unit = <fun>
 ```
 
 ### Questions:
@@ -181,24 +231,33 @@ let increment_with_lock n =
 ## Problem 4: Function Portability and Closures
 
 ```ocaml
-let make_accumulator init =
-  let sum = ref init in
-  fun x ->
-    sum := !sum + x;
-    !sum
+# let make_accumulator init =
+    let sum = ref init in
+    fun x ->
+      sum := !sum + x;
+      !sum;;
+val make_accumulator : int -> int -> int = <fun>
 
-let acc1 = make_accumulator 0
-let acc2 = make_accumulator 100
+# let acc1 = make_accumulator 0;;
+val acc1 : int -> int = <fun>
 
-(* Try to use in parallel *)
-let parallel_accumulate () =
-  let d1 = Domain.spawn (fun () ->
-    List.map acc1 [1; 2; 3]
-  ) in
-  let d2 = Domain.spawn (fun () ->
-    List.map acc1 [4; 5; 6]  (* Same accumulator! *)
-  ) in
-  (Domain.join d1, Domain.join d2)
+# let acc2 = make_accumulator 100;;
+val acc2 : int -> int = <fun>
+
+# (* Sequential usage example *)
+  List.map ~f:acc1 [1; 2; 3];;
+- : int list = [1; 3; 6]
+
+# (* The parallel version would have race conditions: *)
+  let parallel_accumulate () =
+    let d1 = Domain.spawn (fun () ->
+      List.map ~f:acc1 [1; 2; 3]
+    ) in
+    let d2 = Domain.spawn (fun () ->
+      List.map ~f:acc1 [4; 5; 6]  (* Same accumulator! *)
+    ) in
+    (Domain.join d1, Domain.join d2);;
+val parallel_accumulate : unit -> int list * int list = <fun>
 ```
 
 ### Questions:
@@ -216,20 +275,29 @@ let parallel_accumulate () =
 ## Problem 5: Parallel Sequences and Reductions
 
 ```ocaml
-(* Sequential sum *)
-let sum_array arr =
-  Array.fold_left (+) 0 arr
+# (* Sequential sum *)
+  let sum_array arr =
+    Array.fold arr ~init:0 ~f:(+);;
+val sum_array : int array -> int = <fun>
 
-(* Naive parallel attempt *)
-let sum_array_parallel arr =
-  let mid = Array.length arr / 2 in
-  let arr1 = Array.sub arr 0 mid in
-  let arr2 = Array.sub arr mid (Array.length arr - mid) in
+# (* Example *)
+  sum_array [| 1; 2; 3; 4; 5 |];;
+- : int = 15
 
-  let t1 = Domain.spawn (fun () -> sum_array arr1) in
-  let t2 = Domain.spawn (fun () -> sum_array arr2) in
+# (* Naive parallel attempt *)
+  let sum_array_parallel arr =
+    let mid = Array.length arr / 2 in
+    let arr1 = Array.sub arr ~pos:0 ~len:mid in
+    let arr2 = Array.sub arr ~pos:mid ~len:(Array.length arr - mid) in
 
-  Domain.join t1 + Domain.join t2
+    let t1 = Domain.spawn (fun () -> sum_array arr1) in
+    let t2 = Domain.spawn (fun () -> sum_array arr2) in
+
+    Domain.join t1 + Domain.join t2;;
+val sum_array_parallel : int array -> int = <fun>
+
+# sum_array_parallel [| 1; 2; 3; 4; 5; 6; 7; 8 |];;
+- : int = 36
 ```
 
 ### Questions:
@@ -247,28 +315,31 @@ let sum_array_parallel arr =
 ## Problem 6: Read-Only Sharing
 
 ```ocaml
-type image = {
-  width : int;
-  height : int;
-  pixels : float array;  (* Grayscale values *)
-}
+# type image = {
+    width : int;
+    height : int;
+    pixels : float array;  (* Grayscale values *)
+  };;
+type image = { width : int; height : int; pixels : float array; }
 
-let blur image =
-  let result = Array.copy image.pixels in
-  (* Blur operation reads from image.pixels, writes to result *)
-  for i = 0 to Array.length result - 1 do
-    (* Read neighboring pixels from image.pixels *)
-    (* Write blurred value to result.(i) *)
-    ()
-  done;
-  { image with pixels = result }
+# let blur image =
+    let result = Array.copy image.pixels in
+    (* Blur operation reads from image.pixels, writes to result *)
+    for i = 0 to Array.length result - 1 do
+      (* Simplified: just copy for demonstration *)
+      (* In real blur: read neighboring pixels from image.pixels *)
+      (* Write blurred value to result.(i) *)
+      result.(i) <- image.pixels.(i)
+    done;
+    { image with pixels = result };;
+val blur : image -> image = <fun>
 
-(* Parallel blur - each domain processes part of the image *)
-let blur_parallel image =
-  (* How to safely share image.pixels for reading? *)
-  (* Multiple domains need to read the same data *)
-  (* But no domain should modify it *)
-  ...
+# (* Example *)
+  let img = { width = 2; height = 2; pixels = [| 1.0; 2.0; 3.0; 4.0 |] };;
+val img : image = {width = 2; height = 2; pixels = [|1.; 2.; 3.; 4.|]}
+
+# let blurred = blur img;;
+val blurred : image = {width = 2; height = 2; pixels = [|1.; 2.; 3.; 4.|]}
 ```
 
 ### Questions:

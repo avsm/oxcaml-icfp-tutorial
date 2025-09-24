@@ -15,35 +15,58 @@ Compare your answers from Activity 1 with the solutions OxCaml provides!
 Remember the tree averaging problem? Here's how OxCaml makes it safe:
 
 ```ocaml
-(* act2/tree_average_parallel.ml - This actually compiles and runs! *)
-module Thing = struct
-  type t : mutable_data = {
-    price : float;
-    mutable mood : Mood.t
-  }
+# module Tree = struct
+    type 'a t =
+      | Leaf of 'a
+      | Node of 'a t * 'a t
+  end;;
+module Tree : sig type 'a t = Leaf of 'a | Node of 'a t * 'a t end
 
-  (* Key insight: price can be read even when contended! *)
-  let price (t @ contended) = t.price  (* OK: immutable field *)
-  let mood t = t.mood                   (* Requires uncontended *)
-  let cheer_up t = t.mood <- Happy      (* Requires uncontended *)
-end
+# module Thing = struct
+    module Mood = struct
+      type t =
+        | Happy
+        | Neutral
+        | Sad
+    end
 
-let average_par (par : Parallel.t) tree =
-  let rec (total @ portable) par tree =
-    match tree with
-    | Tree.Leaf x -> ~total:(Thing.price x), ~count:1
-    | Tree.Node (l, r) ->
-      let ( (~total:total_l, ~count:count_l),
-            (~total:total_r, ~count:count_r) ) =
-        Parallel.fork_join2 par
-          (fun par -> total par l)
-          (fun par -> total par r)
-      in
-      ( ~total:(total_l +. total_r),
-        ~count:(count_l + count_r) )
-  in
-  let ~total, ~count = total par tree in
-  total /. Float.of_int count
+    type t : mutable_data = {
+      price : float;
+      mutable mood : Mood.t
+    }
+
+    let create ~price ~mood = { price; mood }
+    let price (t @ contended) = t.price
+    let mood t = t.mood
+    let cheer_up t = t.mood <- Happy
+  end;;
+module Thing :
+  sig
+    module Mood : sig type t = Happy | Neutral | Sad end
+    type t = { price : float; mutable mood : Mood.t; }
+    val create : price:float -> mood:Mood.t -> t
+    val price : t @ contended -> float
+    val mood : t -> Mood.t
+    val cheer_up : t -> unit
+  end
+
+# let average_par (par : Parallel.t) tree =
+    let rec (total @ portable) par tree =
+      match tree with
+      | Tree.Leaf x -> ~total:(Thing.price x), ~count:1
+      | Tree.Node (l, r) ->
+        let ( (~total:total_l, ~count:count_l),
+              (~total:total_r, ~count:count_r) ) =
+          Parallel.fork_join2 par
+            (fun par -> total par l)
+            (fun par -> total par r)
+        in
+        ( ~total:(total_l +. total_r),
+          ~count:(count_l + count_r) )
+    in
+    let ~total, ~count = total par tree in
+    total /. Float.of_int count;;
+val average_par : Parallel_kernel.t -> Thing.t Tree.t -> float = <fun>
 ```
 
 ### What OxCaml Provides:
@@ -69,9 +92,10 @@ OxCaml's modes eliminate these systematically:
 This means: *If it compiles, no data race is possible.* The compiler enforces **sequential consistency** - you can reason about your parallel code by considering all possible sequential interleavings.
 
 ### Try This:
-```bash
+```
+TODO
 # This compiles and runs safely!
-dune exec act2/tree_average_parallel.exe
+$ dune exec act2/tree_average_parallel.exe
 ```
 
 ---
@@ -81,23 +105,65 @@ dune exec act2/tree_average_parallel.exe
 Remember the unsafe array mutations? OxCaml provides **slices**:
 
 ```ocaml
-(* act2/quicksort_parallel.ml *)
+# module Capsule = Basement.Capsule;;
+module Capsule = Basement.Capsule
+
+# module Par_array = Parallel.Arrays.Array;;
 module Par_array = Parallel.Arrays.Array
+
+# module Slice = Parallel.Arrays.Array.Slice;;
 module Slice = Parallel.Arrays.Array.Slice
 
-let rec quicksort_par parallel slice =
-  if Slice.length slice <= 1000 then
-    quicksort_seq slice
-  else begin
-    let pivot = partition slice in
-    (* Magic: fork_join2 splits the slice safely! *)
-    Slice.fork_join2
-      parallel
-      ~pivot
-      slice
-      (fun parallel left -> quicksort_par parallel left)
-      (fun parallel right -> quicksort_par parallel right)
-  end
+# let swap slice ~i ~j =
+    let temp = Slice.get slice i in
+    Slice.set slice i (Slice.get slice j);
+    Slice.set slice j temp;;
+val swap : ('a : value mod contended). 'a Slice.t -> i:int -> j:int -> unit =
+  <fun>
+
+# let partition slice =
+    let length = Slice.length slice in
+    let pivot_index = Random.int length in
+    swap slice ~i:pivot_index ~j:(length - 1);
+    let pivot = Slice.get slice (length - 1) in
+    let store_index = ref 0 in
+    for i = 0 to length - 2 do
+      if Slice.get slice i <= pivot then begin
+        swap slice ~i ~j:!store_index;
+        Int.incr store_index
+      end
+    done;
+    swap slice ~i:!store_index ~j:(length - 1);
+    !store_index;;
+val partition : int Slice.t -> int = <fun>
+
+# let rec quicksort_seq slice =
+    if Slice.length slice > 1 then begin
+      let pivot = partition slice in
+      let length = Slice.length slice in
+      let left = Slice.sub slice ~i:0 ~j:pivot in
+      let right = Slice.sub slice ~i:pivot ~j:length in
+      quicksort_seq left;
+      quicksort_seq right [@nontail]
+    end;;
+Line 7, characters 21-25:
+Error: This value escapes its region.
+
+# let rec quicksort_par parallel slice =
+    if Slice.length slice <= 1000 then
+      quicksort_seq slice
+    else begin
+      let pivot = partition slice in
+      Slice.fork_join2
+        parallel
+        ~pivot
+        slice
+        (fun parallel left -> quicksort_par parallel left)
+        (fun parallel right -> quicksort_par parallel right)
+    end;;
+Line 3, characters 7-20:
+Error: Unbound value quicksort_seq
+Hint: Did you mean quicksort_par?
 ```
 
 ### What OxCaml Provides:
@@ -108,13 +174,15 @@ let rec quicksort_par parallel slice =
 
 ### The Capsule Wrapper:
 ```ocaml
-let sort_capsule ~scheduler ~mutex array =
+# let sort_capsule ~scheduler ~mutex array =
   Capsule.Mutex.with_lock mutex ~f:(fun password ->
     Capsule.Data.iter array ~password ~f:(fun array ->
       let array = Par_array.of_array array in
       quicksort_par parallel (Slice.slice array)
     )
   )
+Line 5, characters 7-20:
+Error: Unbound value quicksort_par
 ```
 
 **Capsules** protect the array, ensuring exclusive access during sorting.
@@ -127,33 +195,49 @@ Remember the race condition with counters? OxCaml offers two solutions:
 
 ### Solution 1: Atomics (mode-crossing)
 ```ocaml
-(* Atomic.t crosses contention and portability! *)
-module Atomic = Portable.Atomic
+# module Atomic = Portable.Atomic;;
+Line 1, characters 17-32:
+Error: Unbound module Portable
+Hint: Did you mean Floatable or Intable?
 
-let counter = Atomic.make 0
+# let counter = Atomic.make 0;;
+Line 1, characters 15-26:
+Alert deprecated: module Base.Atomic
+[2016-09] this element comes from the stdlib distributed with OCaml.
+Use [Atomic] from [Portable] (or [Core], which reexports it from
+[Portable]) instead.
 
-let increment_safe n =
-  for i = 1 to n do
-    Atomic.incr counter  (* Always safe! *)
-  done
+val counter : int Atomic.t = <abstr>
+
+# let increment_safe n =
+    for i = 1 to n do
+      Atomic.incr counter
+    done;;
+Line 3, characters 7-18:
+Alert deprecated: module Base.Atomic
+[2016-09] this element comes from the stdlib distributed with OCaml.
+Use [Atomic] from [Portable] (or [Core], which reexports it from
+[Portable]) instead.
+
+val increment_safe : int -> unit = <fun>
 ```
 
 ### Solution 2: Capsules (explicit synchronization)
 ```ocaml
-let concurrent_counter () =
-  let (P key) = Capsule.create () in
-  let mutex = Capsule.Mutex.create key in
-  let counter = Capsule.Data.create (fun () -> ref 0) in
+# let concurrent_counter () =
+    let (P key) = Capsule.create () in
+    let mutex = Capsule.Mutex.create key in
+    let counter = Capsule.Data.create (fun () -> ref 0) in
 
-  let increment () =
-    Capsule.Mutex.with_lock mutex ~f:(fun password ->
-      Capsule.Data.iter counter ~password ~f:(fun r ->
-        r := !r + 1
+    let increment () =
+      Capsule.Mutex.with_lock mutex ~f:(fun password ->
+        Capsule.Data.iter counter ~password ~f:(fun r ->
+          r := !r + 1
+        )
       )
-    )
-  in
-  (* Safe to use from multiple domains! *)
-  ...
+    in
+    increment;;
+val concurrent_counter : unit -> unit -> unit = <fun>
 ```
 
 ### What OxCaml Provides:
@@ -178,13 +262,10 @@ This is why `Atomic.t` solves the parallelism problem:
 
 When atomics aren't enough (complex operations, multiple values), capsules provide explicit locking:
 
-```ocaml
-(* The pattern: *)
 1. Capsule.create () -> unique key
 2. Capsule.Mutex.create key -> shareable mutex (consumes key)
 3. Capsule.Data.create -> protected data
 4. Capsule.Mutex.with_lock -> get password for exclusive access
-```
 
 ---
 
@@ -193,22 +274,34 @@ When atomics aren't enough (complex operations, multiple values), capsules provi
 Remember the accumulator that captured mutable state? OxCaml prevents this:
 
 ```ocaml
-(* This WON'T compile as portable! *)
-let make_bad_accumulator init =
-  let sum = ref init in
-  fun x ->              (* NOT portable - captures mutable ref *)
-    sum := !sum + x;
-    !sum
+# let make_bad_accumulator init =
+    let sum = ref init in
+    fun x ->
+      sum := !sum + x;
+      !sum;;
+val make_bad_accumulator : int -> int -> int = <fun>
 
-(* This WILL compile as portable *)
-let make_good_accumulator init =
-  let sum = Atomic.make init in
-  fun x ->              (* Portable - Atomic.t crosses modes *)
-    Atomic.fetch_and_add sum x
+# let make_good_accumulator init =
+    let sum = Atomic.make init in
+    fun x ->
+      Atomic.fetch_and_add sum x;;
+Line 2, characters 15-26:
+Alert deprecated: module Base.Atomic
+[2016-09] this element comes from the stdlib distributed with OCaml.
+Use [Atomic] from [Portable] (or [Core], which reexports it from
+[Portable]) instead.
 
-(* Pure functional version *)
-let make_pure_accumulator init =
-  fun x -> init + x     (* Always portable - no mutable state *)
+Line 4, characters 7-27:
+Alert deprecated: module Base.Atomic
+[2016-09] this element comes from the stdlib distributed with OCaml.
+Use [Atomic] from [Portable] (or [Core], which reexports it from
+[Portable]) instead.
+
+val make_good_accumulator : int -> int -> int = <fun>
+
+# let make_pure_accumulator init =
+    fun x -> init + x;;
+val make_pure_accumulator : int -> int -> int = <fun>
 ```
 
 ### What OxCaml Provides:
@@ -231,11 +324,12 @@ There are four key rules for `portable`:
 
 This is why `make_bad_accumulator` fails:
 ```ocaml
-let make_bad_accumulator init =
+# let make_bad_accumulator init =
   let sum = ref init in    (* sum is not portable! *)
   fun x ->                 (* Can't capture non-portable values *)
     sum := !sum + x;       (* Also: can't mutate contended refs *)
     !sum
+val make_bad_accumulator : int -> int -> int = <fun>
 ```
 
 The compiler prevents this at multiple levels!
@@ -247,21 +341,33 @@ The compiler prevents this at multiple levels!
 Remember the inefficient array copying? OxCaml provides high-level operations:
 
 ```ocaml
-(* act2/array_sum_parallel.ml *)
+# let add_many_par par arr =
+    let seq = Parallel.Sequence.of_iarray arr in
+    Parallel.Sequence.reduce par seq ~f:(fun a b -> a + b)
+    |> Option.value ~default:0;;
+Line 3, characters 30-33:
+Error: Function arguments and returns must be representable.
+       The layout of Parallel_kernel.t is any
+         because the .cmi file for Parallel_kernel.t is missing.
+       But the layout of Parallel_kernel.t must be representable
+         because we must know concretely how to pass a function argument.
+       No .cmi file found containing Parallel_kernel.t.
+       Hint: Adding "parallel_kernel" to your dependencies might help.
 
-(* No copying needed! *)
-let add_many_par par arr =
-  let seq = Parallel.Sequence.of_iarray arr in
-  Parallel.Sequence.reduce par seq ~f:(fun a b -> a + b)
-  |> Option.value ~default:0
-
-(* With automatic granularity control *)
-let sum_squares_par par arr =
-  let seq = Parallel.Sequence.of_iarray arr in
-  Parallel.Sequence.fold' par seq
-    ~f:(fun _par x -> x * x)           (* Map *)
-    ~init:0
-    ~combine:(fun _par a b -> a + b)   (* Reduce *)
+# let sum_squares_par par arr =
+    let seq = Parallel.Sequence.of_iarray arr in
+    Parallel.Sequence.fold' par seq
+      ~f:(fun _par x -> x * x)
+      ~init:0
+      ~combine:(fun _par a b -> a + b);;
+Line 3, characters 29-32:
+Error: Function arguments and returns must be representable.
+       The layout of Parallel_kernel.t is any
+         because the .cmi file for Parallel_kernel.t is missing.
+       But the layout of Parallel_kernel.t must be representable
+         because we must know concretely how to pass a function argument.
+       No .cmi file found containing Parallel_kernel.t.
+       Hint: Adding "parallel_kernel" to your dependencies might help.
 ```
 
 ### What OxCaml Provides:
@@ -291,25 +397,26 @@ This means `iarray` can be shared read-only between multiple domains with zero c
 Remember the image blur problem? OxCaml has the `shared` mode:
 
 ```ocaml
-module Image = struct
-  type t : mutable_data
+# module Image = struct
+    type t : mutable_data
 
-  (* Can read from shared images! *)
-  val get : t @ shared -> x:int -> y:int -> float
-  val set : t -> x:int -> y:int -> float -> unit
-end
+    val get : t @ shared -> x:int -> y:int -> float
+    val set : t -> x:int -> y:int -> float -> unit
+  end;;
+Line 4, characters 5-52:
+Error: Value declarations are only allowed in signatures
 
-let blur_parallel ~scheduler ~key image =
-  (* Aliased key = shared access *)
-  Parallel_scheduler_work_stealing.schedule scheduler ~f:(fun parallel ->
-    Parallel_array.init parallel (width * height) ~f:(fun i ->
-      Capsule.Key.access_shared key ~f:(fun access ->
-        let image = Capsule.Data.unwrap_shared image ~access in
-        (* Multiple domains can read simultaneously! *)
-        blur_at image ~x:(i % width) ~y:(i / width)
+# let blur_parallel ~scheduler ~key image =
+    Parallel_scheduler_work_stealing.schedule scheduler ~f:(fun parallel ->
+      Parallel_array.init parallel (width * height) ~f:(fun i ->
+        Capsule.Key.access_shared key ~f:(fun access ->
+          let image = Capsule.Data.unwrap_shared image ~access in
+          blur_at image ~x:(i % width) ~y:(i / width)
+        )
       )
-    )
-  )
+    );;
+Line 2, characters 5-46:
+Error: Unbound module Parallel_scheduler_work_stealing
 ```
 
 ### What OxCaml Provides:
@@ -333,8 +440,11 @@ The `shared` mode is the solution to a key problem: what if multiple domains nee
 
 This is achieved through **aliased capsule keys**:
 ```ocaml
-let (P key) = Capsule.create () in      (* unique key *)
-let key = Capsule.Key.share key in      (* now aliased -> shared access *)
+# let (P key) = Capsule.create () in      (* unique key *)
+  let key = Capsule.Key.share key in      (* now aliased -> shared access *)
+  () ;;
+Line 2, characters 13-30:
+Error: Unbound value Capsule.Key.share
 ```
 
 When a capsule key is aliased, accessing the capsule provides `shared` rather than `uncontended` access to the data.
@@ -358,20 +468,22 @@ When a capsule key is aliased, accessing the capsule provides `shared` rather th
 
 ### Question 1: Modes
 What's the difference between these?
-```ocaml
-val f1 : Thing.t -> int                    (* Takes uncontended *)
-val f2 : Thing.t @ contended -> int        (* Takes contended *)
-val f3 : Thing.t -> int @@ portable        (* Function is portable *)
+```
+# val f1 : Thing.t -> int;;
+# val f2 : Thing.t @ contended -> int;;
+# val f3 : Thing.t -> int @@ portable;;
 ```
 
 ### Question 2: Why This Fails
 Why won't this compile?
 ```ocaml
-let bad_parallel par =
-  let data = ref 0 in
-  Parallel.fork_join2 par
-    (fun _ -> data := 1)  (* Error! *)
-    (fun _ -> data := 2)
+# let bad_parallel par =
+    let data = ref 0 in
+    Parallel.fork_join2 par
+      (fun _ -> data := 1)
+      (fun _ -> data := 2);;
+Line 4, characters 17-21:
+Error: This value is contended but expected to be uncontended.
 ```
 
 **Answer**: This fails on multiple levels:
@@ -397,11 +509,9 @@ Why can `float * float` be freely shared between domains but `float array` canno
 - `float array` has `mutable_data` kind - has mutable elements, so it only crosses portability, not contention
 
 From the mode crossing table:
-```
 | Kind           | Constraint              | Crosses              |
 | immutable_data | no mutable fields       | portability, contention |
 | mutable_data   | no functions            | portability only     |
-```
 
 `array` elements can be mutated, so multiple domains accessing it could cause data races without `uncontended` access.
 
@@ -424,15 +534,15 @@ Compare with your Activity 1 answers:
 ## Try It Yourself!
 
 Run the examples:
-```bash
+```
 # Sequential baseline
-dune exec act1/tree_average.exe
-dune exec act1/quicksort.exe
+$ dune exec act1/tree_average.exe
+$ dune exec act1/quicksort.exe
 
 # Parallel with OxCaml safety
-dune exec act2/tree_average_parallel.exe
-dune exec act2/quicksort_parallel.exe
-dune exec act2/array_sum_parallel.exe
+$ dune exec act2/tree_average_parallel.exe
+$ dune exec act2/quicksort_parallel.exe
+$ dune exec act2/array_sum_parallel.exe
 ```
 
 Experiment:
@@ -463,13 +573,10 @@ Experiment:
 Types with appropriate **kinds** can ignore certain mode requirements:
 
 ```ocaml
-type immutable_pair : immutable_data = float * float
-  (* Crosses: portability + contention *)
-  (* Why: No mutable fields, no functions *)
-
-type mutable_record : mutable_data = { mutable x: int }
-  (* Crosses: portability only *)
-  (* Why: No functions, but has mutable fields *)
+# type immutable_pair : immutable_data = float * float;;
+type immutable_pair = float * float
+# type mutable_record : mutable_data = { mutable x: int };;
+type mutable_record = { mutable x : int; }
 ```
 
 ### The Safety Guarantee

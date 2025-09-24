@@ -11,6 +11,8 @@ For each code snippet:
 
 Keep your answers for comparison with Activity 2, where we'll see how OxCaml solves these issues.
 
+TODO: KC is building a vastly simplified OCaml 5 version of Parallel.fork_join2 so we can use the same interfaces below.
+
 ---
 
 ## Problem 1: Data Races in Parallel Tree Processing
@@ -79,7 +81,7 @@ val test_tree : Thing.t Tree.t =
 Now imagine trying to parallelize this:
 
 ```ocaml
-(* Pseudo-code - this won't compile in standard OCaml *)
+(* Pseudo-code - this won't compile in standard OCaml. TODO KC to add fork_join2 version. *)
 let average_parallel tree =
   let rec total tree =
     match tree with

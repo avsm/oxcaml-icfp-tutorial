@@ -95,7 +95,7 @@ This means: *If it compiles, no data race is possible.* The compiler enforces **
 
 ### Try This:
 ```
-TODO
+TODO avsm
 # This compiles and runs safely!
 $ dune exec act2/tree_average_parallel.exe
 ```
@@ -140,16 +140,14 @@ val swap : ('a : value mod contended). 'a Slice.t -> i:int -> j:int -> unit =
 val partition : int Slice.t -> int = <fun>
 
 # let rec quicksort_seq slice =
-    if Slice.length slice > 1 then begin
-      let pivot = partition slice in
-      let length = Slice.length slice in
-      let left = Slice.sub slice ~i:0 ~j:pivot in
-      let right = Slice.sub slice ~i:pivot ~j:length in
-      quicksort_seq left;
-      quicksort_seq right [@nontail]
-    end;;
-Line 7, characters 21-25:
-Error: This value escapes its region.
+  if Slice.length slice > 1 then begin
+    let pivot = partition slice in
+    let length = Slice.length slice in
+    let left = Slice.sub slice ~i:0 ~j:pivot in
+    let right = Slice.sub slice ~i:pivot ~j:length in
+    quicksort_seq left;
+    quicksort_seq right [@nontail]
+  end
 
 # let rec quicksort_par parallel slice =
     if Slice.length slice <= 1000 then

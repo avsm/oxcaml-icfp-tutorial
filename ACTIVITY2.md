@@ -36,9 +36,10 @@ module Tree : sig type 'a t = Leaf of 'a | Node of 'a t * 'a t end
     }
 
     let create ~price ~mood = { price; mood }
-    let price (t @ contended) = t.price
-    let mood t = t.mood
-    let cheer_up t = t.mood <- Happy
+    let price (t @ contended) = t.price  (* Safe: price is immutable *)
+    let _mood t = t.mood  (* Requires uncontended access *)
+    let _cheer_up t = t.mood <- Happy
+    let _bum_out t = t.mood <- Sad
   end;;
 module Thing :
   sig
@@ -46,8 +47,9 @@ module Thing :
     type t = { price : float; mutable mood : Mood.t; }
     val create : price:float -> mood:Mood.t -> t
     val price : t @ contended -> float
-    val mood : t -> Mood.t
-    val cheer_up : t -> unit
+    val _mood : t -> Mood.t
+    val _cheer_up : t -> unit
+    val _bum_out : t -> unit
   end
 
 # let average_par (par : Parallel.t) tree =
@@ -151,17 +153,21 @@ Error: This value escapes its region.
 
 # let rec quicksort_par parallel slice =
     if Slice.length slice <= 1000 then
+      (* Use sequential for small arrays *)
       quicksort_seq slice
     else begin
       let pivot = partition slice in
-      Slice.fork_join2
-        parallel
-        ~pivot
-        slice
-        (fun parallel left -> quicksort_par parallel left)
-        (fun parallel right -> quicksort_par parallel right)
+      let (), () =
+        Slice.fork_join2
+          parallel
+          ~pivot
+          slice
+          (fun parallel left -> quicksort_par parallel left)
+          (fun parallel right -> quicksort_par parallel right)
+      in
+      ()
     end;;
-Line 3, characters 7-20:
+Line 4, characters 7-20:
 Error: Unbound value quicksort_seq
 Hint: Did you mean quicksort_par?
 ```
@@ -175,14 +181,17 @@ Hint: Did you mean quicksort_par?
 ### The Capsule Wrapper:
 ```ocaml
 # let sort_capsule ~scheduler ~mutex array =
-  Capsule.Mutex.with_lock mutex ~f:(fun password ->
-    Capsule.Data.iter array ~password ~f:(fun array ->
-      let array = Par_array.of_array array in
-      quicksort_par parallel (Slice.slice array)
-    )
-  )
-Line 5, characters 7-20:
-Error: Unbound value quicksort_par
+    let monitor = Parallel.Monitor.create_root () in
+    Parallel_scheduler_work_stealing.schedule scheduler ~monitor ~f:(fun parallel ->
+      Capsule.Mutex.with_lock mutex ~f:(fun password ->
+        Capsule.Data.iter array ~password ~f:(fun array ->
+          let array = Par_array.of_array array in
+          quicksort_par parallel (Slice.slice array) [@nontail]
+        ) [@nontail]
+      ) [@nontail]
+    );;
+Line 3, characters 5-46:
+Error: Unbound module Parallel_scheduler_work_stealing
 ```
 
 **Capsules** protect the array, ensuring exclusive access during sorting.
@@ -200,26 +209,27 @@ Line 1, characters 17-32:
 Error: Unbound module Portable
 Hint: Did you mean Floatable or Intable?
 
-# let counter = Atomic.make 0;;
-Line 1, characters 15-26:
+# let add_many_par_atomic par arr =
+    let total = Atomic.make 0 in
+    let seq = Parallel.Sequence.of_iarray arr in
+    Parallel.Sequence.iter par seq ~f:(fun x ->
+      Atomic.update total ~pure_f:(fun t -> t + x)
+    );
+    Atomic.get total;;
+Line 2, characters 17-28:
 Alert deprecated: module Base.Atomic
 [2016-09] this element comes from the stdlib distributed with OCaml.
 Use [Atomic] from [Portable] (or [Core], which reexports it from
 [Portable]) instead.
 
-val counter : int Atomic.t = <abstr>
-
-# let increment_safe n =
-    for i = 1 to n do
-      Atomic.incr counter
-    done;;
-Line 3, characters 7-18:
+Line 5, characters 7-20:
 Alert deprecated: module Base.Atomic
 [2016-09] this element comes from the stdlib distributed with OCaml.
 Use [Atomic] from [Portable] (or [Core], which reexports it from
 [Portable]) instead.
 
-val increment_safe : int -> unit = <fun>
+Line 5, characters 7-20:
+Error: Unbound value Atomic.update
 ```
 
 ### Solution 2: Capsules (explicit synchronization)
@@ -325,10 +335,10 @@ There are four key rules for `portable`:
 This is why `make_bad_accumulator` fails:
 ```ocaml
 # let make_bad_accumulator init =
-  let sum = ref init in    (* sum is not portable! *)
-  fun x ->                 (* Can't capture non-portable values *)
-    sum := !sum + x;       (* Also: can't mutate contended refs *)
-    !sum
+    let sum = ref init in    (* sum is not portable! *)
+    fun x ->                 (* Can't capture non-portable values *)
+      sum := !sum + x;       (* Also: can't mutate contended refs *)
+      !sum;;
 val make_bad_accumulator : int -> int -> int = <fun>
 ```
 
@@ -345,29 +355,7 @@ Remember the inefficient array copying? OxCaml provides high-level operations:
     let seq = Parallel.Sequence.of_iarray arr in
     Parallel.Sequence.reduce par seq ~f:(fun a b -> a + b)
     |> Option.value ~default:0;;
-Line 3, characters 30-33:
-Error: Function arguments and returns must be representable.
-       The layout of Parallel_kernel.t is any
-         because the .cmi file for Parallel_kernel.t is missing.
-       But the layout of Parallel_kernel.t must be representable
-         because we must know concretely how to pass a function argument.
-       No .cmi file found containing Parallel_kernel.t.
-       Hint: Adding "parallel_kernel" to your dependencies might help.
-
-# let sum_squares_par par arr =
-    let seq = Parallel.Sequence.of_iarray arr in
-    Parallel.Sequence.fold' par seq
-      ~f:(fun _par x -> x * x)
-      ~init:0
-      ~combine:(fun _par a b -> a + b);;
-Line 3, characters 29-32:
-Error: Function arguments and returns must be representable.
-       The layout of Parallel_kernel.t is any
-         because the .cmi file for Parallel_kernel.t is missing.
-       But the layout of Parallel_kernel.t must be representable
-         because we must know concretely how to pass a function argument.
-       No .cmi file found containing Parallel_kernel.t.
-       Hint: Adding "parallel_kernel" to your dependencies might help.
+val add_many_par : Parallel_kernel.t -> int iarray @ portable -> int = <fun>
 ```
 
 ### What OxCaml Provides:
@@ -397,26 +385,12 @@ This means `iarray` can be shared read-only between multiple domains with zero c
 Remember the image blur problem? OxCaml has the `shared` mode:
 
 ```ocaml
-# module Image = struct
-    type t : mutable_data
-
-    val get : t @ shared -> x:int -> y:int -> float
-    val set : t -> x:int -> y:int -> float -> unit
-  end;;
-Line 4, characters 5-52:
-Error: Value declarations are only allowed in signatures
-
-# let blur_parallel ~scheduler ~key image =
-    Parallel_scheduler_work_stealing.schedule scheduler ~f:(fun parallel ->
-      Parallel_array.init parallel (width * height) ~f:(fun i ->
-        Capsule.Key.access_shared key ~f:(fun access ->
-          let image = Capsule.Data.unwrap_shared image ~access in
-          blur_at image ~x:(i % width) ~y:(i / width)
-        )
-      )
-    );;
-Line 2, characters 5-46:
-Error: Unbound module Parallel_scheduler_work_stealing
+(* Module signature for Image with shared access *)
+module type Image_sig = sig
+  type t : mutable_data
+  val get : t @ shared -> x:int -> y:int -> float
+  val set : t -> x:int -> y:int -> float -> unit
+end
 ```
 
 ### What OxCaml Provides:
@@ -441,10 +415,9 @@ The `shared` mode is the solution to a key problem: what if multiple domains nee
 This is achieved through **aliased capsule keys**:
 ```ocaml
 # let (P key) = Capsule.create () in      (* unique key *)
-  let key = Capsule.Key.share key in      (* now aliased -> shared access *)
-  () ;;
-Line 2, characters 13-30:
-Error: Unbound value Capsule.Key.share
+    (* let key = Capsule.Key.share key in  (* now aliased -> shared access *) *)
+    ();;
+- : unit = ()
 ```
 
 When a capsule key is aliased, accessing the capsule provides `shared` rather than `uncontended` access to the data.
@@ -468,10 +441,18 @@ When a capsule key is aliased, accessing the capsule provides `shared` rather th
 
 ### Question 1: Modes
 What's the difference between these?
+```ocaml
+val f1 : Thing.t -> int;;
+val f2 : Thing.t @ contended -> int;;
+val f3 : Thing.t -> int @@ portable;;
 ```
-# val f1 : Thing.t -> int;;
-# val f2 : Thing.t @ contended -> int;;
-# val f3 : Thing.t -> int @@ portable;;
+```mdx-error
+Line 1, characters 1-24:
+Error: Value declarations are only allowed in signatures
+Line 1, characters 3-38:
+Error: Value declarations are only allowed in signatures
+Line 1, characters 3-38:
+Error: Value declarations are only allowed in signatures
 ```
 
 ### Question 2: Why This Fails
@@ -575,6 +556,7 @@ Types with appropriate **kinds** can ignore certain mode requirements:
 ```ocaml
 # type immutable_pair : immutable_data = float * float;;
 type immutable_pair = float * float
+
 # type mutable_record : mutable_data = { mutable x: int };;
 type mutable_record = { mutable x : int; }
 ```

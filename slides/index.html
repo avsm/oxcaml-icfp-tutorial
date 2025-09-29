@@ -1818,7 +1818,7 @@ relevance:0},{begin:/-&gt;/}]})})();hljs.registerLanguage(&quot;ocaml&quot;,e)})
 &lt;li&gt;&lt;span&gt;Zero data races&lt;/span&gt;&lt;/li&gt;
 &lt;li&gt;&lt;span&gt;Compile-time verification&lt;/span&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;div center-at-unpause pause&gt;&lt;/div&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
 &lt;h1 id=&quot;part-1-understanding-data-races&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#part-1-understanding-data-races&quot;&gt;&lt;/a&gt;&lt;span&gt;Part 1: Understanding Data Races&lt;/span&gt;&lt;/h1&gt;
 &lt;p class=&quot;definition&quot; title=&quot;What is a Data Race?&quot;&gt;&lt;span&gt;A race condition where two parallel accesses to the same memory location conflict.&lt;/span&gt;&lt;/p&gt;
 &lt;h2 id=&quot;the-four-horsemen-of-data-races&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#the-four-horsemen-of-data-races&quot;&gt;&lt;/a&gt;&lt;span&gt;The Four Horsemen of Data Races&lt;/span&gt;&lt;/h2&gt;
@@ -2022,9 +2022,321 @@ let price (t @ contended) = t.price
   let ~total, ~count = total tree in
   total /. Float.of_int count
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p speaker-note&gt;&lt;span&gt;Note the use of labeled tuples, a new OCaml 5.4 feature. The sequential version&lt;/span&gt;
-&lt;span&gt;is straightforward recursive traversal.&lt;/span&gt;
-&lt;span speaker-note&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;h2 id=&quot;tree-averaging-parallel-version&quot; up-at-unpause pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#tree-averaging-parallel-version&quot;&gt;&lt;/a&gt;&lt;span&gt;Tree Averaging: Parallel Version&lt;/span&gt;&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let average_par (par : Parallel.t) tree =
+  let rec (total @ portable) par tree =
+    match tree with
+    | Leaf x -&amp;gt; x.price, 1
+    | Node (l, r) -&amp;gt;
+      let ( (total_l, count_l),
+            (total_r, count_r) ) =
+        Parallel.fork_join2 par
+          (fun par -&amp;gt; total par l)  (* Process left subtree *)
+          (fun par -&amp;gt; total par r)  (* Process right subtree *)
+      in
+      ( (total_l +. total_r),
+        (count_l +  count_r) ) in
+  let total, count = total par tree in
+  total /. Float.of_int count
+&lt;/code&gt;&lt;/pre&gt;
+&lt;div pause&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;total&lt;/code&gt;&lt;span&gt; must be &lt;/span&gt;&lt;code&gt;portable&lt;/code&gt;&lt;span&gt; to be used in &lt;/span&gt;&lt;code&gt;fork_join2&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Tree elements become &lt;/span&gt;&lt;code&gt;contended&lt;/code&gt;&lt;span&gt; in parallel tasks&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Thing.price&lt;/code&gt;&lt;span&gt; works because it accepts a &lt;/span&gt;&lt;code&gt;contended&lt;/code&gt;&lt;span&gt; argument&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;A work-stealing scheduler handles load balancing; more on that next.&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;h2 id=&quot;running-with-a-scheduler&quot; up-at-unpause pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#running-with-a-scheduler&quot;&gt;&lt;/a&gt;&lt;span&gt;Running with a Scheduler&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;span&gt;This can all be automatically scheduled across available cores by&lt;/span&gt;
+&lt;span&gt;selecting a suitable scheduler:&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let run_parallel ~f =
+  let module Scheduler = Parallel_scheduler_work_stealing in
+  let scheduler = Scheduler.create () in
+  let monitor = Parallel.Monitor.create_root () in
+  let result = Scheduler.schedule scheduler ~monitor ~f in
+  Scheduler.stop scheduler;
+  result
+
+let () =
+  let test_tree = build_tree 15 in  (* 32,768 leaves *)
+  let result = run_parallel ~f:(fun par -&amp;gt;
+    average_par par test_tree
+  ) in
+  Printf.printf &amp;quot;Average: %.2f\n%!&amp;quot; result
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p pause&gt;&lt;span&gt;TODO avsm: sort table styling&lt;/span&gt;&lt;/p&gt;
+&lt;div role=&quot;region&quot;&gt;&lt;table&gt;
+&lt;tr&gt;
+&lt;th&gt;&lt;span&gt;Tree Size&lt;/span&gt;&lt;/th&gt;
+&lt;th&gt;&lt;span&gt;Sequential&lt;/span&gt;&lt;/th&gt;
+&lt;th&gt;&lt;span&gt;Parallel (8 cores)&lt;/span&gt;&lt;/th&gt;
+&lt;th&gt;&lt;span&gt;Speedup&lt;/span&gt;&lt;/th&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;span&gt;2^10 nodes&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;0.002s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;0.001s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;2.0x&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;span&gt;2^15 nodes&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;0.063s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;0.011s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;5.7x&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;span&gt;2^20 nodes&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;2.1s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;0.31s&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;6.8x&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;&lt;/div&gt;&lt;p&gt;&lt;span&gt;Custom schedulers can be defined as first-class modules, but the&lt;/span&gt;
+&lt;span&gt;default heartbeat-based one is a hassle-free default.&lt;/span&gt;&lt;/p&gt;
+&lt;h2 id=&quot;mode-crossing-and-kinds&quot; up-at-unpause pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#mode-crossing-and-kinds&quot;&gt;&lt;/a&gt;&lt;span&gt;Mode Crossing and Kinds&lt;/span&gt;&lt;/h2&gt;
+&lt;p class=&quot;definition&quot; title=&quot;Kinds&quot;&gt;&lt;span&gt;Types can have also have &amp;quot;kinds&amp;quot; that describe their properties and what modes they can cross.&lt;/span&gt;&lt;/p&gt;
+&lt;div role=&quot;region&quot;&gt;&lt;table&gt;
+&lt;tr&gt;
+&lt;th&gt;&lt;span&gt;Kind&lt;/span&gt;&lt;/th&gt;
+&lt;th&gt;&lt;span&gt;Requirements&lt;/span&gt;&lt;/th&gt;
+&lt;th&gt;&lt;span&gt;Crosses&lt;/span&gt;&lt;/th&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;immutable_data&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;No functions or mutable fields (deeply)&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;portability, contention&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;mutable_data&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;No functions (deeply)&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;portability&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;value&lt;/code&gt;&lt;span&gt; (TODO avsm: the default?)&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;None&lt;/span&gt;&lt;/td&gt;
+&lt;td&gt;&lt;span&gt;none&lt;/span&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/table&gt;&lt;/div&gt;&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;type t : mutable_data = {  (* Explicitly declare kind *)
+  price : float;
+  mutable mood : Mood.t }  (* Now Thing.t crosses portability automatically *)
+
+(* Generic function using kinds *)
+let always_portable (x : ('a : mutable_data) @ nonportable) : 'a @ portable =
+  let y @ portable = x in  (* OK: 'a crosses portability *)
+  y
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p class=&quot;remark&quot; title=&quot;Use kinds to reduce manual type annotations&quot;&gt;&lt;span&gt;Kinds reduce annotation burden significantly.&lt;/span&gt;&lt;br&gt;&lt;span&gt;Most data types are either&lt;/span&gt;
+&lt;code&gt;immutable_data&lt;/code&gt;&lt;span&gt; or &lt;/span&gt;&lt;code&gt;mutable_data&lt;/code&gt;&lt;span&gt;, so they &amp;quot;just work&amp;quot; across domains.&lt;/span&gt;&lt;/p&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
+&lt;h1 id=&quot;part-4-working-with-mutable-state&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#part-4-working-with-mutable-state&quot;&gt;&lt;/a&gt;&lt;span&gt;Part 4: Working with Mutable State&lt;/span&gt;&lt;/h1&gt;
+&lt;p&gt;&lt;span&gt;Fork/join works great for functional code, but what about imperative algorithms? OxCaml provides three components:&lt;/span&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;span&gt;Use &lt;/span&gt;&lt;strong&gt;&lt;span&gt;atomics&lt;/span&gt;&lt;/strong&gt;&lt;span&gt; for shared counters&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Use &lt;/span&gt;&lt;strong&gt;&lt;span&gt;capsules&lt;/span&gt;&lt;/strong&gt;&lt;span&gt; for deeply mutable structures&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Use &lt;/span&gt;&lt;strong&gt;&lt;span&gt;parallel arrays&lt;/span&gt;&lt;/strong&gt;&lt;span&gt; for array-based algorithms&lt;/span&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&quot;atomics&quot; pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#atomics&quot;&gt;&lt;/a&gt;&lt;span&gt;Atomics&lt;/span&gt;&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let average_with_atomics par tree =
+  let total = Atomic.make 0.0 in
+  let count = Atomic.make 0 in
+  let rec go par tree =
+    match tree with
+    | Leaf x -&amp;gt;
+       Atomic.update total ~pure_f:(fun t -&amp;gt; t +. x.price);
+       Atomic.incr count
+    | Node (l, r) -&amp;gt;
+       let (), () = Parallel.fork_join2 par
+         (fun par -&amp;gt; go par l)
+         (fun par -&amp;gt; go par r)
+       in ()
+   in
+   go par tree;
+   Atomic.get total /. Float.of_int (Atomic.get count)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p center-at-unpause pause&gt;&lt;span&gt;Note that &lt;/span&gt;&lt;code&gt;Atomic.t&lt;/code&gt;&lt;span&gt; crosses both portability and contention, and is safe to access from any domain.&lt;/span&gt;&lt;br&gt;
+&lt;span&gt;However, it's more expensive than regular operations and only prevents data races, not race conditions!&lt;/span&gt;&lt;/p&gt;
+&lt;h2 id=&quot;capsules&quot; up-at-unpause pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#capsules&quot;&gt;&lt;/a&gt;&lt;span&gt;Capsules&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;span&gt;Now let's look at more complex mutable state management for deeply nested structures.&lt;/span&gt;&lt;/p&gt;
+&lt;p id=&quot;capsules&quot; class=&quot;definition&quot; title=&quot;Capsules&quot;&gt;&lt;span&gt;Associate mutable state with locks, ensuring exclusive access. Capsules use the type system to track which values have access. An existential &amp;quot;password&amp;quot; proves that value hold the lock.&lt;/span&gt;&lt;/p&gt;
+&lt;pre id=&quot;capsules&quot; pause&gt;&lt;code class=&quot;language-ocaml&quot;&gt;(* 1. Encapsulated data *)
+let capsule_ref : (int ref, 'k) Capsule.Data.t =
+  Capsule.Data.create (fun () -&amp;gt; ref 0)
+
+(* 2. Create capsule and get key *)
+let (P key) = Capsule.create () in
+
+(* 3. Create mutex from key *)
+let mutex = Capsule.Mutex.create key in
+
+(* 4. Access with lock *)
+Capsule.Mutex.with_lock mutex ~f:(fun password -&amp;gt;
+  Capsule.Data.iter capsule_ref ~password ~f:(fun r -&amp;gt;
+    r := !r + 1
+  ))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;div center-at-unpause pause&gt;
+&lt;div style=&quot;border: 2px dashed #888; padding: 20px; margin: 20px; background: #f0f0f0;&quot;&gt;
+  [DIAGRAM: Show capsule containing data, protected by mutex, accessed via password]
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;p pause&gt;&lt;span&gt;Before we show an example of capsules, let's first also look at parallel slices. We will use both capsules and parallel slices to speed up a mutable sorting algorithm.&lt;/span&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;span&gt;A slice is a &lt;/span&gt;&lt;code&gt;local&lt;/code&gt;&lt;span&gt; view of a portion of an array.&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;A slice &lt;/span&gt;&lt;em&gt;&lt;span&gt;borrows&lt;/span&gt;&lt;/em&gt;&lt;span&gt; a segment of the array, only allowing access to a contiguous subset of its indices.&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;We can implement a standard sequential quicksort using slices:&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
+&lt;p&gt;&lt;span&gt;First let's implement the partition phase:&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;module Slice = Parallel.Arrays.Array.Slice
+
+let swap slice ~i ~j =
+  let temp = Slice.get slice i in
+  Slice.set slice i (Slice.get slice j);
+  Slice.set slice j temp
+
+let partition slice =
+  let length = Slice.length slice in
+  let pivot = Random.int length in
+  swap slice ~i:pivot ~j:(length - 1);
+  let pivot = Slice.get slice (length - 1) in
+  let store = ref 0 in
+  for i = 0 to length - 2 do
+    if Slice.get slice i &amp;lt;= pivot
+    then (
+      swap slice ~i ~j:!store;
+      Int.incr store)
+  done;
+  swap slice ~i:!store ~j:(length - 1);
+  !store
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p center-at-unpause pause&gt;&lt;span&gt;Then we can use the slices to do an in-place &lt;/span&gt;&lt;strong&gt;&lt;span&gt;sequential&lt;/span&gt;&lt;/strong&gt;&lt;span&gt; quicksort:&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let rec quicksort slice =
+  if Slice.length slice &amp;gt; 1
+  then (
+    let pivot = partition slice in
+    let length = Slice.length slice in
+    let left = Slice.sub slice ~i:0 ~j:pivot in
+    let right = Slice.sub slice ~i:pivot ~j:length in
+    quicksort left;
+    quicksort right [@nontail])
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p center-at-unpause pause&gt;&lt;span&gt;Now let's turn this into a parallel quicksort. The &lt;/span&gt;&lt;code&gt;partition&lt;/code&gt;&lt;span&gt; function remains the same, but recursively sorting &lt;/span&gt;&lt;code&gt;left&lt;/code&gt;
+&lt;span&gt;and &lt;/span&gt;&lt;code&gt;right&lt;/code&gt;&lt;span&gt; are independent tasks and could run in parallel.&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;module Par_array = Parallel.Arrays.Array
+
+let rec quicksort parallel slice =
+  if Slice.length slice &amp;gt; 1 then (
+    let pivot = partition slice in
+    let _ = Slice.fork_join2 parallel ~pivot slice
+        (fun parallel left -&amp;gt; quicksort parallel left)
+        (fun parallel right -&amp;gt; quicksort parallel right)
+    in ())
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;span&gt;Slices provide safe views into the mutable arrays. &lt;/span&gt;&lt;code&gt;fork_join2&lt;/code&gt;&lt;span&gt; splits the slice, ensuring each task only sees its portion.&lt;/span&gt;&lt;/p&gt;
+&lt;div center-at-unpause pause&gt;&lt;/div&gt;
+&lt;p&gt;&lt;span&gt;Actually running this also requires a scheduler like before, which requires the uses of capsules to make sure the array we are passing is not itself mutated in parallel with the current &lt;/span&gt;&lt;code&gt;quicksort&lt;/code&gt;&lt;span&gt;:&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let quicksort ~scheduler ~mutex array =
+  let monitor = Parallel.Monitor.create_root () in
+  Parallel_scheduler_work_stealing.schedule scheduler ~monitor ~f:(fun parallel -&amp;gt;
+      Capsule.Mutex.with_lock mutex ~f:(fun password -&amp;gt;
+        Capsule.Data.iter array ~password ~f:(fun array -&amp;gt;
+          let array = Par_array.of_array array in
+          quicksort parallel (Slice.slice array) [@nontail])
+        [@nontail])
+      [@nontail])
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&quot;the-shared-mode&quot; up-at-unpause pause&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#the-shared-mode&quot;&gt;&lt;/a&gt;&lt;span&gt;The Shared Mode&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;span&gt;We can now combine capsules and parallel arrays to run data parallel algorithms over &lt;/span&gt;&lt;em&gt;&lt;span&gt;mutable&lt;/span&gt;&lt;/em&gt;&lt;span&gt; data. This requires introducing a new &lt;/span&gt;&lt;em&gt;&lt;span&gt;shared mode&lt;/span&gt;&lt;/em&gt;&lt;span&gt;.&lt;/span&gt;&lt;/p&gt;
+&lt;p class=&quot;definition&quot; title=&quot;Shared Mode&quot;&gt;&lt;span&gt;A third contention mode between &lt;/span&gt;&lt;code&gt;contended&lt;/code&gt;&lt;span&gt; and &lt;/span&gt;&lt;code&gt;uncontended&lt;/code&gt;&lt;span&gt; that allows parallel reads but no writes.&lt;/span&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;type t : mutable_data   (* image data is mutable *)
+
+val load : string -&amp;gt; t
+val of_array : float array -&amp;gt; width:int -&amp;gt; height:int -&amp;gt; t
+
+(* these take a contended image but as safe as they are 
+   immutable properties (only the image contents change, not the dimensions) *)
+val width : t @ contended -&amp;gt; int  
+val height : t @ contended -&amp;gt; int
+
+(* [set] requires exclusive access to the image *)
+val set : t -&amp;gt; x:int -&amp;gt; y:int -&amp;gt; float -&amp;gt; unit
+(* [get] can be shared among instances for parallel reads *)
+val get : t @ shared -&amp;gt; x:int -&amp;gt; y:int -&amp;gt; float
+&lt;/code&gt;&lt;/pre&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;let filter ~scheduler ~key image =
+  let monitor = Parallel.Monitor.create_root () in
+  Parallel_scheduler_work_stealing.schedule scheduler ~monitor ~f:(fun parallel -&amp;gt;
+    let width = Image.width (Capsule.Data.project image) in
+    let height = Image.height (Capsule.Data.project image) in
+    let pixels = width * height in
+    let data =
+      Parallel_array.init parallel pixels ~f:(fun i -&amp;gt;
+        let x = i % width in
+        let y = i / width in
+        Capsule.Key.access_shared key ~f:(fun access -&amp;gt;
+          let image =
+            Capsule.Data.unwrap_shared image ~access
+          in
+          blur_at image ~x ~y))
+    in
+    Parallel_array.to_array data
+    |&amp;gt; Image.of_array ~width ~height)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p class=&quot;remark&quot;&gt;&lt;span&gt;Shared mode crucial for read-heavy parallel algorithms. Without it, mutexes would serialize all access.&lt;/span&gt;&lt;/p&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
+&lt;h2 id=&quot;common-oxcaml-pitfalls-and-solutions&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#common-oxcaml-pitfalls-and-solutions&quot;&gt;&lt;/a&gt;&lt;span&gt;Common OxCaml Pitfalls and Solutions&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;span&gt;TODO discuss.&lt;/span&gt;&lt;/p&gt;
+&lt;pre class=&quot;example&quot; title=&quot;Forgetting Mode Annotations&quot;&gt;&lt;code class=&quot;language-ocaml&quot;&gt;(* Bad: missing annotations in .mli *)
+val process : Thing.t -&amp;gt; float
+(* Good: explicit about requirements *)
+val process : Thing.t @ contended -&amp;gt; float @@ portable
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&quot;example&quot; title=&quot;Over-synchronization&quot;&gt;&lt;code class=&quot;language-ocaml&quot;&gt;(* Bad: mutex for read-only access *)
+Capsule.Mutex.with_lock mutex ~f:(fun password -&amp;gt; just_read_data password)
+(* Good: use shared access *)
+Capsule.Key.access_shared key ~f:(fun access -&amp;gt; just_read_data access)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&quot;example&quot; center-at-unpause pause title=&quot;Fine-grained Parallelism&quot;&gt;&lt;code class=&quot;language-ocaml&quot;&gt;(* Bad: parallelize tiny operations *)
+Parallel.fork_join2 par (fun _ -&amp;gt; x + 1) (fun _ -&amp;gt; y + 1)
+(* Good: batch work *)
+Parallel.fork_join2 par
+  (fun par -&amp;gt; process_large_dataset1 par data1)
+  (fun par -&amp;gt; process_large_dataset2 par data2)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;span&gt;The compiler catches safety issues, but performance requires thought.&lt;/span&gt;&lt;/p&gt;
+&lt;h2 id=&quot;migration-strategies-from-sequential-ocaml-code&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#migration-strategies-from-sequential-ocaml-code&quot;&gt;&lt;/a&gt;&lt;span&gt;Migration Strategies from Sequential OCaml Code&lt;/span&gt;&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;span&gt;Add kind annotations to types&lt;/span&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;type config : immutable_data = { ... }
+type state : mutable_data = { ... }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;2&quot;&gt;
+&lt;li&gt;&lt;span&gt;Add &lt;/span&gt;&lt;code&gt;@@ portable&lt;/code&gt;&lt;span&gt; to .mli files&lt;/span&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code class=&quot;language-ocaml&quot;&gt;@@ portable
+(* Now all functions default to portable *)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;3&quot;&gt;
+&lt;li&gt;&lt;span&gt;Fix mode errors&lt;/span&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;span&gt;Add &lt;/span&gt;&lt;code&gt;@ contended&lt;/code&gt;&lt;span&gt; to parameters that need it&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Convert mutable fields to immutable or Atomic.t&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Use capsules for complex mutable state&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&quot;4&quot;&gt;
+&lt;li&gt;&lt;span&gt;Add parallelism&lt;/span&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;span&gt;Replace recursive calls with fork_join&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Use Parallel.Sequence for collections&lt;/span&gt;&lt;/li&gt;
+&lt;li&gt;&lt;span&gt;Add schedulers and benchmarks&lt;/span&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div up-at-unpause pause&gt;&lt;/div&gt;
+&lt;h2 id=&quot;resources-and-next-steps&quot;&gt;&lt;a class=&quot;anchor&quot; aria-hidden=&quot;true&quot; href=&quot;#resources-and-next-steps&quot;&gt;&lt;/a&gt;&lt;span&gt;Resources and Next Steps&lt;/span&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;span&gt;TODO&lt;/span&gt;&lt;/p&gt;
 &lt;/div&gt;
 &lt;/div&gt;
 &lt;/div&gt;

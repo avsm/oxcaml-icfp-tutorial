@@ -1,0 +1,4 @@
+(executables
+ (names tree_average quicksort array_sum)
+ (libraries unix)
+ (flags (:standard -alert -unsafe_multidomain -alert -unsafe_parallelism)))

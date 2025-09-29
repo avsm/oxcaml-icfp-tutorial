@@ -1,6 +1,6 @@
 (* Sequential array sum example *)
 
-let add_many (arr : int array) =
+let add_many_seq (arr : int array) =
   Array.fold_left (fun acc x -> acc + x) 0 arr
 
 let main () =
@@ -8,8 +8,9 @@ let main () =
   let sizes = [100; 1000; 10000; 100000] in
   List.iter (fun size ->
     let arr = Array.init size (fun _ -> Random.int 100) in
+
     let start_time = Sys.time () in
-    let sum = add_many arr in
+    let sum = add_many_seq arr in
     let end_time = Sys.time () in
     Printf.printf "Array size %d: sum=%d, time=%.6f seconds\n"
       size sum (end_time -. start_time)

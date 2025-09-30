@@ -3,103 +3,200 @@ dimension: 16:9
 theme: default
 ---
 
-# Data-Race Free Parallel Programming with Oxidised OCaml
+# Oxidized OCaml: *data-race freedom, systems programming, and more!*
 
 **A Conceptual Overview**
 
 ICFP Tutorial
 
-## The Promise and Peril of Parallelism
-
-OCaml 5 unleashed parallel programming with a multicore-aware runtime and effects...
-
-...but also unleashed chaos: race conditions, nondeterministic bugs, and hard-to-reason-about code.
-
 ## Oxidized Caml
 
-**Guaranteed data-race freedom** through a sophisticated mode system
-
-- Full parallel power
+- Fine-grained memory control
+- Full parallel power of OCaml 5
 - Zero data races
 - Compile-time verification
 
 {pause up}
 
-# Part 1: Understanding Data Races
+## Types Provide Safety
 
-{.definition title="What is a Data Race?"}
-A race condition where two parallel accesses to the same memory location conflict.
+```ocaml
+"hello" + 42
+ ^^^^^
+Error: This expression has type  
+ string 
+but an expression was expected of type  
+ int
+```
 
-## The Four Horsemen of Data Races
+OCaml 5 introduced parallelism ... and data races, nondeterministic bugs. Yay!
 
-1. **Parallel execution** - Code running in different parallel domains
-2. **Shared memory** - A location accessible by multiple domains
-3. **At least one write** - One domain is modifying the data
-4. **No synchronization** - The domains are not using `Atomic.t` or similar
+OxCaml provides finer-grained memory control, have you debugged a C++ segfault?
+
+*OCaml types can't prevent all unsafe actions*
+
+{pause}
+
+Modes provide safety guarantees while using powerful, and dangerous, features
 
 {pause up}
 
-## A Simple Example
+# A Conceptual Overview of Modes
+
+{.definition title="What are Modes?"}
+Modes assign properties to values
+
+- **Types** describe what a value is
+- **Modes** describe a property of the value
+
+{pause}
+
+Example properties
+
+- A value is read only
+
+- A value is stack allocated
+
+{pause}
+
+- A function can be called from any domain
+
+{pause}
+
+- A function won't yield
+
+{pause}
+
+A property may refine how a value can be used: *a stack-allocated value cannot escape its region*
+
+{pause}
+
+Modes provide safety and control over new OCaml features: parallelism, memory layout, etc
+
+{pause up}
+
+# Example 1: Safe stack allocation
 
 ```ocaml
-type t = { mutable f : int }
-let reference = ref 1
-let record = { f = 2 }
-let arr = [| 3; 4 |]
+type pixel = { r: int; g: int; b: int }
+
+let new_pixel r g b = 
+  let p = { r=r; g=g; b=b } in
+  p
 ```
 
 {pause}
 
-Two domains running in parallel:
-
-```ocaml
-(* Domain A *)
-let fun1 () =
-  reference := 2;
-  record.f <- 3;
-  arr.(0) <- 4;
-  print_int arr.(1)
-```
+Normally we can ignore memory and just rely on the GC
 
 {pause}
 
-```
-(* Domain B *)
-let fun2 () =
-  reference := 3;          (* Data race! write vs write *)
-  print_int record.field;  (* Data race! read vs write *)
-  arr.(0) <- arr.(0) + 1;  (* Two data races! *)
-  print_int arr.(1)        (* OK: read vs read *)
+## OxCaml provides facilities for controlling allocation
+
+{pause}
+
+```ocaml
+type pixel = { r: int; g: int; b: int }
+
+let new_pixel r g b = 
+  let p @ local = { r=r; g=g; b=b } in
+  p
 ```
 
 {pause up}
-## Why Data Races Are Catastrophic
 
-### Example: A Gold Trading Disaster
+Modes provide guardrails — so you don't pull a C++ and shoot yourself in the foot
 
-```ocaml
-let price_of_gold = ref 0.0
-let initialised = ref false
-```
-Domain A (initialization):
-```ocaml
-price_of_gold := calculate_price_of_gold ();
-initialised := true
-```
-Domain B (trading):
-```ocaml
-if !initialised then
-  if !price_of_gold < really_good_price_for_gold then
-    buy_lots_of_gold ()
+```text
+let new_pixel r g b = 
+  let p @ local = { r=r; g=g; b=b } in
+  p
+  ^
+Error: This value escapes its region.
 ```
 
 {pause}
 
-Without data-race freedom, the compiler or CPU can **reorder** operations! Domain A might set `initialised := true` **before** setting the price! As a result, we buy gold at price 0.0.
+The `local` mode describes an allocation property: a value allocated on the stack, i.e., "locally." Typical OCaml values are allocated on the heap, i.e., "globally."
 
-The potential reorderings existing for performance optimization by both the compiler and CPU. Sequential consistency is lost.
+{pause}
+
+Now, we can't forget about memory and rely on the GC, because **returning a stack allocated value would result in a dangling pointer!**
+
+{pause}
+
+```ocaml
+let () = 
+  let p = new_pixel 255 0 0 in
+  print_int p.r (* Whoops! Bad memory access *)
+```
+
+{.remark title="Locality restriction"}
+Local values cannot escape their region.
+
+Use the `exclave_` annotation to allocate local return values on the *caller's stack*
+
+```ocaml
+type pixel = { r: int; g: int; b: int }
+
+let new_pixel r g b = 
+  exclave_ { r=r; g=g; b=b }
+
+let () = 
+  let p @ local = new_pixel 255 0 0 in
+  print_int p.r
+```
 
 {pause center}
+<div style="border: 2px dashed #888; padding: 20px; margin: 20px; background: #f0f0f0;">
+  [PLACEHOLDER DIAGRAM: Show stack frame with local allocation vs heap with global allocation]
+</div>
+
+{pause up}
+
+# Example 2: Safe parallelism
+
+OCaml 5 unleashed parallel programming with a multicore-aware runtime and effects...
+
+...but also unleashed chaos: race conditions, nondeterministic bugs, and hard-to-reason-about code.
+
+{pause up}
+
+## OCaml 5 introduced a new class of error: Data Races
+
+```ocaml
+let gensym = 
+  let count = ref 0 in 
+  fun () -> 
+    count := !count + 1 ;
+    Printf.sprintf "gsym_%d" !count
+
+let gen_many par n = 
+  Parallel.Arrays.Array.init par n (fun _ -> gensym ())
+```
+
+What could happen if `gen_many` is called with $n \geq 2$?
+
+{pause}
+
+```text
+Domain 1                    Domain 2
+--------                    --------
+!count (0)                  
+                            !count (0)
+count := 0 + 1             
+                            count := 0 + 1
+!count (1)             
+                            !count (1)
+```
+
+Resulting array: `[| "gsym_1"; "gsym_1" |]` Duplicate symbols? Unexpected!
+
+{pause center}
+
+We want to *statically prevent* `gensym` from running on parallel domains, just like we statically prevent adding a string to an int.
+
+{pause up}
 
 ## Sequential Consistency
 
@@ -114,159 +211,245 @@ Data-race freedom gives programmers the power to reason intuitively about our co
 
 {pause up}
 
-# Part 2: The Mode System Foundation
+## Data races require 4 ingredients
 
-{.definition title="What are Modes?"}
-Modes describe the *circumstances* of a value in an OxCaml program, and not its *shape*.
-
-- **Types** describe what a value is.
-- **Modes** describe what you can do with that value.
+1. **Parallel execution** - Code running in different parallel domains
+2. **Shared memory** - A location accessible by multiple domains
+3. **At least one write** - One domain is modifying the data
+4. **No synchronization** - The domains are not using `Atomic.t` or similar
 
 {pause}
-## Example: Stack Allocation
 
 ```ocaml
-let f () =
-  let x @ local = [1; 2; 3] in  (* allocated on stack *)
-  let y @ global = [4; 5; 6] in (* allocated on heap *)
-  x, y  (* Error! Can't return local value *)
+let gensym = 
+  let count = ref 0 in (* (2) shared memory *)
+  (* (4)     ^^^^^^                  
+         bare ref: no synchronization *)
+  fun () -> 
+    count := !count + 1 ; (* (3) a write *)
+    Printf.sprintf "gsym_%d" !count
+
+let gen_many par n = 
+  (* (1) parallel execution, when n > 1 *)
+  Parallel.Arrays.Array.init par n (fun _ -> gensym ())
 ```
 
-TODO: clarify the new @ syntax
+{pause}
 
-{pause center}
-<div style="border: 2px dashed #888; padding: 20px; margin: 20px; background: #f0f0f0;">
-  [PLACEHOLDER DIAGRAM: Show stack frame with local allocation vs heap with global allocation]
-</div>
+Removing any one of these ingredients results in race-free code.
+
+Let's see how modes prevent us from having all 4
+
+{pause up}
 
 ## Modes for Parallelism
 
 There are four key modes for expressing parallelism constraints.
 
-{pause center}
-The contention modes are `contended` ←→ `uncontended`
+{pause}
+The contention modes are: `uncontended < shared < contended`
 
-- `uncontended` says that *"I have exclusive access"*
-- `contended` says that *"others might be accessing this in parallel"*
+- `uncontended`, *"I have exclusive access"*
+- `shared`, *"other domains might be reading this"*
+- `contended`, *"another domain can write to this"*
 
-{pause center}
-The portability modes are `portable` ←→ `nonportable`
+{pause}
+The portability modes are `portable < nonportable`
 
-- `portable` says that this is *"safe to access from any domain"*
-- `nonportable` says this is *"only safe in the creating domain"*
-
-{pause center}
-
-{.remark title="Contention and portability work together"}
-These two axes work together to prevent data races. <br>
-Contention prevents parallel mutation, while portability prevents unsafe cross-domain accesses.
+- `portable`, *"safe to access from any domain"*
+- `nonportable`, *"only safe in the creating domain"*
 
 {pause up}
+
 ## Contention in Detail
 
 {.theorem title="Rules of Contention"}
-1) If multiple domains access a value, at most one sees it as `uncontended`
-2) Cannot read/write mutable fields of `contended` records/arrays
-3) `uncontended` values can be used as `contended` (subtyping)
-4) Components of `contended` values are `contended` (deep)
+  1) If multiple domains access a value, at most one sees it as `uncontended`
+  2) Cannot read/write mutable fields of `contended` records/arrays
+  3) `uncontended` values can be used as `contended` (submoding)
+  4) Components of `contended` values are `contended` (deep)
 
-{pause}
+{pause up}
 
 ```ocaml
-module Thing = struct
-  type t = {
-    price : float;          (* immutable field *)
-    mutable mood : Mood.t   (* mutable field *)
+module User = struct
+  type t : mutable_data = {
+    id : Uuid.t;
+    mutable last_active : float
   }
 
-  let price (t @ contended) = t.price               (* OK: immutable field *)
-  let mood (t @ contended) = t.mood                 (* ERROR: mutable field! *)
-  let cheer_up (t @ uncontended) = t.mood <- Happy  (* OK: we have exclusive access *)
+  let id (t @ contended) = t.id               
+  (* OK: immutable field *)
+
+  let last_active (t @ contended) = t.last_active                 
+  (* ERROR: mutable field! *)
+
+  let active_now (t @ uncontended) = t.last_active <- Unix.time ()  
+  (* OK: we have exclusive access *)
 end
 ```
 
 {pause}
-{.remark}
-Immutable fields are always safe to read, while mutable fields require exclusive access. This is enforced at compile time.
+
+{.remark title="Contention restriction"}
+Mutable fields of a contended value cannot be read or written
+
+{.remark title="Shared restriction"}
+Mutable fields of a shared value cannot be written
 
 {pause up}
+
 ## The Portability Rules
 
 {.theorem title="Rules of Portability"}
-1. Only `portable` values can cross domain boundaries
-2. A `portable` function can only access values defined inside itself as `uncontended`,  <br> or external values that are both `portable` and `contended`
-3. `portable` values can be used as `nonportable` via subtyping
-4. Components of `portable` values must themselves be `portable`
+  1. Only `portable` values can cross domain boundaries
+  2. A `portable` function can only access values defined inside itself as `uncontended`,  <br> or external values that are both `portable` and `contended`
+  3. `portable` values can be used as `nonportable` via subtyping
+  4. Components of `portable` values must themselves be `portable`
 
 {pause}
 
 ```ocaml
-let (factorial @ portable) n =
-  let a @ uncontended = ref 1 in  (* created inside *)
-  let rec (loop @ nonportable) i =
-    if i > 1 then (
-      a := !a * i;  (* OK: loop sees a from outside *)
-      loop (i - 1)  (* but loop is nonportable *)
-    )
-  in loop n;
-  !a
+let gensym @ portable = 
+  let count = ref 0 in
+  fun () -> 
+    count := !count + 1 ;
+    (* ERROR: ^^^^^ 
+       access of contended mutable state *)
+    Printf.sprintf "gsym_%d" !count
+
+let gen_many par n = 
+  Parallel.Arrays.Array.init par n (fun _ -> gensym ())
 ```
 
 {pause center}
+
+Because `count` is defined outside of the `gensym` function, it is *contended* and can't be read or written
+
+{.remark title="Portability restriction"}
+Portable functions cannot capture uncontended mutable state
+
+{pause up}
+
 ```ocaml
-(* This would fail: *)
-let (bad_factorial @ portable) n =
-  let a = ref 1 in
-  let rec (loop @ portable) i =  (* trying to be portable *)
-    a := !a * i;  (* ERROR: a is contended here! *)
-    loop (i - 1)
-  in
-  loop n
+let (factorial @ portable) n =
+  let acc @ uncontended = ref 1 in
+  let rec (loop @ nonportable) i =
+    if i > 1 then (
+      acc := !acc * i;  (* OK: `acc` is uncontended *)
+      loop (i - 1)      (* and `loop` is nonportable *)
+    )
+  in loop n;
+  !acc
 ```
 
 {pause}
-{.remark}
+
 The factorial example shows how portable functions can contain nonportable
-helpers that access local state.<br>
-The key is that the state doesn't escape the region in which it's defined.
+helpers that access local state.
+
+The key is that the state doesn't escape the region in which it's defined, and the inner `loop` that captures the uncontended state isn't portable.
 
 {pause up}
-## Mode Inference and Annotations
 
-Where do we put all these new mode annotations?
+## Safely Working with Mutable State
 
-{pause}
-In `.mli` signature files:
-```ocaml
-val price : t @ contended -> float @@ portable
-```
+Sometimes we actually need shared mutable state, OxCaml provides three components:
 
-{pause}
-In `.ml` implementations:
-```ocaml
-let rec (total @ portable) par tree = ...
-```
+1. Use **atomics** for shared counters
+2. Use **capsules** for deeply mutable structures
+3. Use **parallel arrays** for array-based algorithms
 
 {pause}
-As global defaults at the start of a file:
+
+## Atomics
+
 ```ocaml
-@@ portable  (* at top of .mli *)
-type t
-val create : price:float -> mood:Mood.t -> t
-val price : t @ contended -> float  (* no need for @@ portable *)
+let gensym = 
+  let count = Atomic.make 0 in 
+  fun () -> 
+    let n = Atomic.fetch_and_add count 1 in 
+    Printf.sprintf "gsym_%d" n 
 ```
 
-{.remark}
-Mode inference works like normal OCaml type inference, but explicit annotations help
-with error messages and documentation, and are highly recommended.
+{pause center}
+
+Note that `Atomic.t` crosses both portability and contention, and is safe to access from any domain.
+
+However, it's more expensive than regular operations and only prevents data races, not race conditions!
 
 {pause up}
-# Part 3: Fork/Join Parallelism
+
+## Capsules
+
+Now let's look at more complex mutable state management for deeply nested structures.
+
+{.definition title="Capsules" #capsules}
+Associate mutable state with locks, ensuring exclusive access. Capsules use the type system to track which values have access. An existential "password" proves that value hold the lock.
+
+{pause #capsules}
+
+```ocaml
+let gensym = 
+  (* 1. Encapsulated data *)
+  let counter = Capsule.Data.create (fun () -> ref 0) in
+  (* 2. Create capsule and get key *)
+  let (P key) = Capsule.create () in
+  (* 3. Create mutex from key *)
+  let mutex = Capsule.Mutex.create key in
+  (* 4. Access with lock *)
+  let increment () =
+    Capsule.Mutex.with_lock mutex ~f:(fun password ->
+      Capsule.Data.extract counter ~password ~f:(fun c ->
+        c := !c + 1 ; !c))
+  in
+  fun () -> 
+    Printf.sprintf "gsym_%d" (increment ())
+
+```
+
+{pause center}
+<div style="border: 2px dashed #888; padding: 20px; margin: 20px; background: #f0f0f0;">
+  [DIAGRAM: Show capsule containing data, protected by mutex, accessed via password]
+</div>
+
+{pause up}
+
+## Mode Crossing and Kinds
+
+{.definition title="Kinds"}
+Types can have also have "kinds" that describe their properties and what modes they can cross.
+
+| Kind | Requirements | Crosses |
+|------|-------------|---------|
+| `immutable_data` | No functions or mutable fields (deeply) | portability, contention |
+| `mutable_data` | No functions (deeply) | portability |
+| `value` (TODO avsm: the default?) | None | none |
+
+```ocaml
+type t : mutable_data = {  (* Explicitly declare kind *)
+  price : float;
+  mutable mood : Mood.t }  (* Now Thing.t crosses portability automatically *)
+
+(* Generic function using kinds *)
+let always_portable (x : ('a : mutable_data) @ nonportable) : 'a @ portable =
+  let y @ portable = x in  (* OK: 'a crosses portability *)
+  y
+```
+
+{.remark title="Use kinds to reduce manual type annotations"}
+Kinds reduce annotation burden significantly.<br>Most data types are either
+`immutable_data` or `mutable_data`, so they "just work" across domains.
+
+{pause up}
+
+## Fork/Join Parallelism
 
 {.definition title="Fork/Join Pattern"}
 Computation is split up into independent tasks that run in parallel, and the results are combined into one output.
 
 {pause}
+
 ```ocaml
 let add4 (par : Parallel.t) a b c d =
   let a_plus_b, c_plus_d =
@@ -283,6 +466,7 @@ let add4 (par : Parallel.t) a b c d =
 </div>
 
 {pause up}
+
 ## Tree Averaging: Sequential Version
 
 ```ocaml
@@ -312,7 +496,9 @@ let average_seq tree =
   let ~total, ~count = total tree in
   total /. Float.of_int count
 ```
+
 {pause up}
+
 ## Tree Averaging: Parallel Version
 
 ```ocaml
@@ -334,12 +520,14 @@ let average_par (par : Parallel.t) tree =
 ```
 
 {pause}
+
 - `total` must be `portable` to be used in `fork_join2`
 - Tree elements become `contended` in parallel tasks
 - `Thing.price` works because it accepts a `contended` argument
 - A work-stealing scheduler handles load balancing; more on that next.
 
 {pause up}
+
 ## Running with a Scheduler
 
 This can all be automatically scheduled across available cores by
@@ -374,105 +562,11 @@ TODO avsm: sort table styling
 Custom schedulers can be defined as first-class modules, but the
 default heartbeat-based one is a hassle-free default.
 
-{pause up}
-## Mode Crossing and Kinds
-
-{.definition title="Kinds"}
-Types can have also have "kinds" that describe their properties and what modes they can cross.
-
-| Kind | Requirements | Crosses |
-|------|-------------|---------|
-| `immutable_data` | No functions or mutable fields (deeply) | portability, contention |
-| `mutable_data` | No functions (deeply) | portability |
-| `value` (TODO avsm: the default?) | None | none |
-
-```ocaml
-type t : mutable_data = {  (* Explicitly declare kind *)
-  price : float;
-  mutable mood : Mood.t }  (* Now Thing.t crosses portability automatically *)
-
-(* Generic function using kinds *)
-let always_portable (x : ('a : mutable_data) @ nonportable) : 'a @ portable =
-  let y @ portable = x in  (* OK: 'a crosses portability *)
-  y
-```
-
-{.remark title="Use kinds to reduce manual type annotations"}
-Kinds reduce annotation burden significantly.<br>Most data types are either
-`immutable_data` or `mutable_data`, so they "just work" across domains.
-
-{pause up}
-
-# Part 4: Working with Mutable State
-
-Fork/join works great for functional code, but what about imperative algorithms? OxCaml provides three components:
-1. Use **atomics** for shared counters
-2. Use **capsules** for deeply mutable structures
-3. Use **parallel arrays** for array-based algorithms
-
-{pause}
-## Atomics
-
-```ocaml
-let average_with_atomics par tree =
-  let total = Atomic.make 0.0 in
-  let count = Atomic.make 0 in
-  let rec go par tree =
-    match tree with
-    | Leaf x ->
-       Atomic.update total ~pure_f:(fun t -> t +. x.price);
-       Atomic.incr count
-    | Node (l, r) ->
-       let (), () = Parallel.fork_join2 par
-         (fun par -> go par l)
-         (fun par -> go par r)
-       in ()
-   in
-   go par tree;
-   Atomic.get total /. Float.of_int (Atomic.get count)
-```
-
-{pause center}
-Note that `Atomic.t` crosses both portability and contention, and is safe to access from any domain.<br>
-However, it's more expensive than regular operations and only prevents data races, not race conditions!
-
-{pause up}
-## Capsules
-
-Now let's look at more complex mutable state management for deeply nested structures.
-
-{.definition title="Capsules" #capsules}
-Associate mutable state with locks, ensuring exclusive access. Capsules use the type system to track which values have access. An existential "password" proves that value hold the lock.
-
-{pause #capsules}
-```ocaml
-(* 1. Encapsulated data *)
-let capsule_ref : (int ref, 'k) Capsule.Data.t =
-  Capsule.Data.create (fun () -> ref 0)
-
-(* 2. Create capsule and get key *)
-let (P key) = Capsule.create () in
-
-(* 3. Create mutex from key *)
-let mutex = Capsule.Mutex.create key in
-
-(* 4. Access with lock *)
-Capsule.Mutex.with_lock mutex ~f:(fun password ->
-  Capsule.Data.iter capsule_ref ~password ~f:(fun r ->
-    r := !r + 1
-  ))
-```
- 
-{pause center}
-<div style="border: 2px dashed #888; padding: 20px; margin: 20px; background: #f0f0f0;">
-  [DIAGRAM: Show capsule containing data, protected by mutex, accessed via password]
-</div>
-
 {pause}
 Before we show an example of capsules, let's first also look at parallel slices. We will use both capsules and parallel slices to speed up a mutable sorting algorithm.
 
 - A slice is a `local` view of a portion of an array.
-- A slice _borrows_ a segment of the array, only allowing access to a contiguous subset of its indices.
+- A slice *borrows* a segment of the array, only allowing access to a contiguous subset of its indices.
 - We can implement a standard sequential quicksort using slices:
 
 {pause up}
@@ -553,6 +647,7 @@ let quicksort ~scheduler ~mutex array =
 ```
 
 {pause up}
+
 ## The Shared Mode
 
 We can now combine capsules and parallel arrays to run data parallel algorithms over *mutable* data. This requires introducing a new *shared mode*.
@@ -610,31 +705,31 @@ Shared mode crucial for read-heavy parallel algorithms. Without it, mutexes woul
 TODO discuss.
 
 {.example title="Forgetting Mode Annotations"}
-```ocaml
-(* Bad: missing annotations in .mli *)
-val process : Thing.t -> float
-(* Good: explicit about requirements *)
-val process : Thing.t @ contended -> float @@ portable
-```
+  ```ocaml
+  (* Bad: missing annotations in .mli *)
+  val process : Thing.t -> float
+  (* Good: explicit about requirements *)
+  val process : Thing.t @ contended -> float @@ portable
+  ```
 
 {.example title="Over-synchronization"}
-```ocaml
-(* Bad: mutex for read-only access *)
-Capsule.Mutex.with_lock mutex ~f:(fun password -> just_read_data password)
-(* Good: use shared access *)
-Capsule.Key.access_shared key ~f:(fun access -> just_read_data access)
-```
+  ```ocaml
+  (* Bad: mutex for read-only access *)
+  Capsule.Mutex.with_lock mutex ~f:(fun password -> just_read_data password)
+  (* Good: use shared access *)
+  Capsule.Key.access_shared key ~f:(fun access -> just_read_data access)
+  ```
 
 {pause center}
 {.example title="Fine-grained Parallelism"}
-```ocaml
-(* Bad: parallelize tiny operations *)
-Parallel.fork_join2 par (fun _ -> x + 1) (fun _ -> y + 1)
-(* Good: batch work *)
-Parallel.fork_join2 par
-  (fun par -> process_large_dataset1 par data1)
-  (fun par -> process_large_dataset2 par data2)
-```
+  ```ocaml
+  (* Bad: parallelize tiny operations *)
+  Parallel.fork_join2 par (fun _ -> x + 1) (fun _ -> y + 1)
+  (* Good: batch work *)
+  Parallel.fork_join2 par
+    (fun par -> process_large_dataset1 par data1)
+    (fun par -> process_large_dataset2 par data2)
+  ```
 
 The compiler catches safety issues, but performance requires thought.
 
@@ -648,23 +743,27 @@ type state : mutable_data = { ... }
 ```
 
 2. Add `@@ portable` to .mli files
+
 ```ocaml
 @@ portable
 (* Now all functions default to portable *)
 ```
+
 3. Fix mode errors
+
 - Add `@ contended` to parameters that need it
 - Convert mutable fields to immutable or Atomic.t
 - Use capsules for complex mutable state
 
 4. Add parallelism
+
 - Replace recursive calls with fork_join
 - Use Parallel.Sequence for collections
 - Add schedulers and benchmarks
-
 
 {pause up}
 
 ## Resources and Next Steps
 
 TODO
+

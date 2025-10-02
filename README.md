@@ -9,6 +9,24 @@ Status: WIP, unreleased
 
 We have two 90 minute chunks, first at 1400-1530 and then 1600-1730.
 
+# Getting started
+
+Use the pre-built Docker Hub image.
+
+1. Open this folder in VS Code
+2. Click "Reopen in Container" when prompted
+   - OR: `Cmd/Ctrl + Shift + P` → "Dev Containers: Reopen in Container"
+
+The docker image has three switches installed
+
+```bash
+opam@d573f5771225:/workspaces/oxcaml-icfp-tutorial$ opam switch
+#  switch      compiler                                          description
+→  5.2.0+ox    ocaml-variants.5.2.0+ox                           5.2.0+ox
+   5.3         ocaml-base-compiler.5.3.0                         5.3
+   5.3.0+tsan  ocaml-option-tsan.1,ocaml-variants.5.3.0+options  5.3.0+tsan
+```
+
 # First Session
 
 ## Activity 1 (15m)

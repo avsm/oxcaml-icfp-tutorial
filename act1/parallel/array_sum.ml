@@ -42,6 +42,24 @@ let add_many_par_atomic (arr : int array) =
   Domain.join d2;
   Atomic.get sum
 
+let add_many_par_nonatomic (arr : int array) =
+  let mid = Array.length arr / 2 in
+  let sum = ref 0 in
+  let d1 = Domain.spawn (fun _ ->
+    for i = 0 to mid - 1 do
+      sum := !sum + arr.(i)
+    done)
+  in
+  let d2 = Domain.spawn (fun _ ->
+    for i = mid to Array.length arr - 1 do
+      sum := !sum + arr.(i)
+    done)
+  in
+  Domain.join d1;
+  Domain.join d2;
+  !sum
+
+
 let main () =
   Random.init 42;
   let sizes = [1000; 10000; 100000; 1000000] in
@@ -65,6 +83,11 @@ let main () =
     let sum_atomic = add_many_par_atomic arr in
     let time_atomic = Unix.gettimeofday () -. start_time in
 
+    (* Parallel without atomics *)
+    let start_time = Unix.gettimeofday () in
+    let sum_nonatomic = add_many_par_nonatomic arr in
+    let time_nonatomic = Unix.gettimeofday () -. start_time in
+
     let open Printf in
     printf "Array size %d:\n" size;
     printf "  Sequential:   sum=%d, time=%.6f s\n" sum_seq time_seq;
@@ -72,6 +95,8 @@ let main () =
       sum_par time_par (time_seq /. time_par);
     printf "  Par+Atomic:   sum=%d, time=%.6f s (speedup %.2fx)\n"
       sum_atomic time_atomic (time_seq /. time_atomic);
+    printf "  Par-NonAtomic:sum=%d, time=%.6f s (speedup %.2fx)\n"
+      sum_nonatomic time_nonatomic (time_seq /. time_nonatomic);
     printf "\n"
   ) sizes
 

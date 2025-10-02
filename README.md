@@ -85,15 +85,3 @@ of questions that target the core concepts of OxCaml and test the conceptual
 model of the participants. This will give us a sense of where participants
 still have difficulty and what future tools/educational material should target.
 (Or maybe language changes?)
-
-## Development Environment
-
-For a containerized OCaml development environment with multi-architecture support:
-
-```bash
-.devcontainer/build.sh setup  # One-time Docker buildx setup
-.devcontainer/build.sh build  # Build development container
-.devcontainer/build.sh run    # Run container with tutorial mounted
-```
-
-See [.devcontainer/README.md](.devcontainer/README.md) for details.

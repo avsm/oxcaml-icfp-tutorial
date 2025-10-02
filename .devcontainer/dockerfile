@@ -1,31 +1,14 @@
-FROM ocaml/opam:ubuntu-ocaml-5.3
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-# Set up cross-platform variables
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
+RUN apt-get update && apt-get -y install m4 build-essential autoconf opam libunwind-dev pkg-config
 
-# Install system packages and cleanup in same layer
-RUN sudo apt update --fix-missing && \
-    sudo apt install -y autoconf pkg-config libunwind-dev tzdata && \
-    sudo apt clean && sudo rm -rf /var/lib/apt/lists/*
+USER vscode
 
-# Install development tools on default 5.3 switch and cleanup
-RUN opam install ocaml-lsp-server odoc ocamlformat utop merlin && \
-    opam clean -a -c -s --logs && \
-    rm -rf /tmp/* /home/opam/.cache/*
+RUN opam init -a --disable-sandboxing --yes --bare && \
+        opam update -a && \
+	opam switch create 5.3.0 --yes && \
+        opam switch create 5.2.0+ox --yes \
+        --repos "ox=git+https://github.com/oxcaml/opam-repository.git,default" && \
+        eval $(opam env --switch 5.2.0+ox)
 
-# Note: TSAN build disabled - fails under QEMU emulation for cross-platform builds
-# Uncomment only for native single-platform builds:
-RUN opam switch create 5.3.0+tsan --packages=ocaml-variants.5.3.0+options,ocaml-option-tsan && \
-    opam install dune && \
-    opam clean -a -c -s --logs && \
-    rm -rf /tmp/* /home/opam/.cache/*
-
-# Create OCaml 5.2.0 switch with OxCamL parallel extensions and cleanup
-RUN opam switch create 5.2.0+ox --repos ox=git+https://github.com/oxcaml/opam-repository.git,default && \
-    opam install ocamlformat merlin ocaml-lsp-server utop parallel core_unix && \
-    opam clean -a -c -s --logs && \
-    rm -rf /tmp/* /home/opam/.cache/*
-
-# Set the default switch to the OxCamL version
-RUN opam switch 5.2.0+ox
+RUN opam install -y ocamlformat merlin ocaml-lsp-server odoc utop core parallel && opam clean -a

@@ -1,0 +1,16 @@
+{
+    "name": "OCaml Dev Container",
+    "build": {
+        "dockerfile": "dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ocamllabs.ocaml-platform"
+            ]
+        }
+    },
+    "postCreateCommand": "opam switch 5.2.0+ox && eval $(opam env)",
+    "remoteUser": "opam"
+}

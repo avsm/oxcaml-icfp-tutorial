@@ -1,0 +1,23 @@
+FROM ocaml/opam:ubuntu-ocaml-5.3
+
+# Set up cross-platform variables
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+# Update package lists
+RUN sudo apt update --fix-missing
+RUN sudo apt install -y autoconf pkg-config libunwind-dev
+
+# Use the default 5.3 switch and install development tools
+RUN opam install ocaml-lsp-server odoc ocamlformat utop merlin
+
+# Create ThreadSanitizer-enabled OCaml 5.3 switch
+RUN opam switch create 5.3.0+tsan --packages=ocaml-variants.5.3.0+options,ocaml-option-tsan
+RUN opam install dune
+
+# Create OCaml 5.2.0 switch with OxCamL parallel extensions
+RUN opam switch create 5.2.0+ox --repos ox=git+https://github.com/oxcaml/opam-repository.git,default
+RUN opam install ocamlformat merlin ocaml-lsp-server utop parallel core_unix
+
+# Set the default switch to the OxCamL version
+RUN opam switch 5.2.0+ox

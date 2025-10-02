@@ -2,7 +2,30 @@
 
 This directory contains everything needed for OCaml development with Docker multi-architecture support.
 
-## Quick Start
+## VS Code Dev Containers
+
+### Option 1: Use Pre-built Image from Docker Hub (Recommended)
+
+**Default configuration** - Fast setup, no build required!
+
+1. Open the project in VS Code
+2. Press `Cmd/Ctrl + Shift + P`
+3. Select "Dev Containers: Reopen in Container"
+4. Wait for image to pull from Docker Hub (~5-10 minutes)
+
+**Image**: `kayceesrk/oxcaml-icfp-tutorial:latest`
+
+### Option 2: Build Locally
+
+For development or customization:
+
+1. Open the project in VS Code
+2. Press `Cmd/Ctrl + Shift + P`
+3. Select "Dev Containers: Open Folder in Container..."
+4. Choose `.devcontainer-from-scratch` folder
+5. Wait for local build (~30-40 minutes)
+
+## Manual Docker Commands
 
 **One script does everything:**
 

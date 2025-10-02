@@ -1,9 +1,11 @@
 {
     "name": "OCaml Dev Container",
-    "build": {
-        "dockerfile": "dockerfile",
-        "context": ".."
-    },
+    "image": "kayceesrk/oxcaml-icfp-tutorial:latest",
+    // Uncomment to build locally instead of pulling from Docker Hub:
+    // "build": {
+    //     "dockerfile": "dockerfile",
+    //     "context": ".."
+    // },
     "customizations": {
         "vscode": {
             "extensions": [

@@ -10,6 +10,6 @@ RUN opam init -a --disable-sandboxing --yes --bare && \
 	opam switch create 5.3.0+tsan ocaml-variants.5.3.0+options ocaml-option-tsan --yes && \
         opam switch create 5.2.0+ox --yes \
         --repos "ox=git+https://github.com/oxcaml/opam-repository.git,default" && \
-        eval $(opam env --switch 5.2.0+ox)
+        opam switch 5.2.0+ox
 
 RUN opam install -y ocamlformat merlin ocaml-lsp-server odoc utop core parallel && opam clean -a

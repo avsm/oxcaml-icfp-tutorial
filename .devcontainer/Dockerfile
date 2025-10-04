@@ -12,6 +12,7 @@ RUN opam init -a --disable-sandboxing --yes --bare && \
         --repos "ox=git+https://github.com/oxcaml/opam-repository.git,default" && \
         opam switch 5.2.0+ox
 
-RUN opam install --switch=5.3.0 -y ocamlformat merlin ocaml-lsp-server odoc utop base && \
-	opam install --switch=5.3.0+tsan -y ocamlformat merlin ocaml-lsp-server odoc utop base && \
-	opam install -y ocamlformat merlin ocaml-lsp-server odoc utop core parallel && opam clean -a
+RUN opam install --switch=5.3.0 -y dune && \
+	opam install --switch=5.3.0+tsan -y dune && \
+	opam install -y ocamlformat merlin ocaml-lsp-server odoc utop core parallel && \
+  opam clean -a

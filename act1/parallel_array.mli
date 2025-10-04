@@ -1,0 +1,1 @@
+val init : int -> (int -> 'a) -> 'a array

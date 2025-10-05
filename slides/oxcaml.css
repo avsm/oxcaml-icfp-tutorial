@@ -41,12 +41,12 @@
 
 body {
   font-family: "Charter", serif;
-  font-size: 1rem;
+  font-size: 1em;
 }
 
 pre, code {
   font-family: "Fira Mono", monospace;
-  font-size: 0.85rem;
+  font-size: 0.85em;
 }
 
 ul {
@@ -60,14 +60,71 @@ a {
 table {
 	text-align: left;
 	border-collapse: collapse;
+
+  &tr:first-child {
+    border-bottom: 2px solid;
+  }
 }
 
-table tr:first-child {
-  border-bottom: 2px solid;
-}
 
-table td {
+table td, th {
   padding-right: 1em;
+}
+
+#contention-portability-container { }
+
+.cont-port-container {
+  display: grid;
+  grid-template-areas: 
+    'port cont'
+    'info info';
+
+  p code { margin: 0; }
+  .port-area { grid-area: port; }
+  .cont-area { grid-area: cont; }
+  .subtitle { display: none; }
+}
+
+.does-not-compile {
+
+  pre&, pre {
+    position: relative;
+  }
+
+  code&, code {
+    border: 3px solid #FF43A4;
+
+    &::after {
+      position: absolute; top: -2em; right: 0;
+      content: url(assets/oxcaml.svg);
+      height: 100px;
+      width: 100px;
+    }
+    /*
+    &.language-rust::after {
+      content: url(assets/ferris.svg);
+      height: 100px;
+      width: 100px;
+    }
+
+    &.language-ocaml::after {
+      content: url(assets/oxcaml.svg);
+      height: 100px;
+      width: 100px;
+    }
+    */
+  }
+}
+
+.correct {
+  position: relative;
+
+  &::before {
+    position: absolute; top: 0; left: 0;
+    content: "✓";
+    color: green;
+    font-size: 2em;
+  }
 }
 
 .slip-body, .slide-body {

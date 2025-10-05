@@ -1,54 +1,23 @@
-# Oxidized OCaml: *safe control over program behavior*
+# OxCaml: *safe control over program behavior*
 
 ## ICFP Tutorial
 
 Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino
 
-Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris
+Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek
 
----
-
-You know a language is ~~complicated~~ *cool* when this many people consult on a tutorial
-
-{pause up}
-
-## Activity 1
-
-*Note, this is a stand in for the real activity, which will be hosted online*
-
-TODO
-
-{pause up}
-
-## Types Provide Safety
-
-```ocaml
-"hello" + 42
- ^^^^^
-Error: expression has type  
- string 
-but an expression was expected of type  
- int
-```
-
-{pause}
-
-### MultiCore OCaml Introduced Parallelism
-
-```ocaml
-let gensym = 
-  let count = ref 0 in 
-  fun () -> 
-    count := !count + 1 ;
-    "gsym_" ^ (Int.to_string !count)
-
-let gen_many par n = 
-  Par_array.init par n (fun _ -> gensym ())
-```
-
-{pause} ... and data races, nondeterministic bugs, etc  :(
-
-*OCaml types can't prevent all unsafe actions*
+<!-- {pause up} -->
+<!---->
+<!-- ## Types Provide Safety -->
+<!---->
+<!-- ```ocaml -->
+<!-- "hello" + 42 -->
+<!--  ^^^^^ -->
+<!-- Error: expression has type   -->
+<!--  string  -->
+<!-- but an expression was expected of type   -->
+<!--  int -->
+<!-- ``` -->
 
 {pause up}
 
@@ -60,13 +29,351 @@ let gen_many par n =
 
 - **Control:** over allocation and memory layout
 
-- **Safe:** data-race freedom, memory safety
+{pause}
 
-- **in OCaml:** every OCaml program is a valid OxCaml program
+- **Safe:** data-race freedom, memory safety
 
 {pause}
 
-OxCaml achieves control and safety via *modes*
+- **in OCaml:** OxCaml is a superset of OCaml, so every OCaml program is a valid OxCaml program
+
+{pause up}
+
+# Example 1: Safe Stack Allocation
+
+```ocaml
+let gensym =
+  let count = ref 0 in
+  fun () ->
+    count := !count + 1 ;
+    "gsym_" ^ (Int.to_string !count) 
+```
+
+{pause}
+
+```ocaml
+let perf_critical () = 
+  let symbols = [| gensym () ; gensym () |] in
+  ...
+```
+
+{pause}
+
+<div style="display: grid; grid-template-columns: auto auto; gap: 1em;">
+
+  {#memory-layout-correct}
+  <img src="./assets/symbols-heap-array.svg" />
+
+  <img src="./assets/symbols-heap-array-inline-syms.svg" />
+</div>
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#memory-layout-correct")
+console.log(el)
+slip.setClass(el, "correct", true)
+```
+
+{pause}
+
+What “bad thing” could happen given these allocations? {pause} *garbage-collection cycle*
+
+{pause center}
+
+What do we need to know/do to avoid this?
+
+{pause}
+
+1. Escape analysis: does `symbols` escape this function region?
+
+{pause}
+
+2. Update the code to allocated the array on the stack
+
+{pause up}
+
+## OxCaml Escape Analysis
+
+{pause}
+
+```ocaml
+let perf_critical () = 
+  let symbols = [| gensym () ; gensym () |] in
+  ...
+```
+
+{pause}
+
+```ocaml
+let perf_critical () = 
+  let symbols @ local = [| gensym () ; gensym () |] in
+  ...
+```
+
+{pause}
+
+Every value is either `@ local` or `@ global`, the latter is the *OCaml default*
+
+{pause}
+
+A value is `@ local` if it doesn't escape the current region
+
+{pause}
+
+A value `@ local` *could be locally allocated*
+
+{pause up}
+
+## OxCaml Local Allocation
+
+```ocaml
+let perf_critical () = 
+  let symbols @ local = [| gensym () ; gensym () |] in
+  ...
+```
+
+We assert that `symbols` is local and doesn't escape the current region
+
+*How can we ensure that it's locally allocated?*
+
+{pause}
+
+OxCaml provides new keywords for allocation: `stack_` and `exclave_`
+
+{pause}
+
+### Using `stack_`
+
+```ocaml
+let perf_critical () = 
+  let symbols @ local = stack_ [| gensym () ; gensym () |] in
+  ...
+```
+
+{pause}
+
+This turns the allocation site for `[| |]` into a *local allocation*
+
+{pause center}
+
+<div style="display: grid; grid-template-rows: 1fr 1fr;">
+
+  {#memory-layout-local-correct}
+  <img src="./assets/symbols-local-to-heap.svg" />
+
+  <img src="./assets/symbols-local-inlined.svg" />
+</div>
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#memory-layout-local-correct")
+slip.setClass(el, "correct", true)
+```
+
+{pause center}
+
+`stack_` controls the allocation *only* for the `[| |]`, `gensym` still allocates the strings on the heap!
+
+{pause}
+
+```ocaml
+val gensym : unit -> string
+```
+
+{pause}
+
+```ocaml
+val gensym : unit -> string @ global
+```
+
+{pause}
+
+Local allocation requires cooperation from *all callees!*
+
+{pause up}
+
+### Using `exclave_`
+
+We may want to use a helper function to create the array
+
+{#stack-not-allocation-site}
+```ocaml
+let gensym_2 () = 
+  [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = stack_ (gensym_2 ()) in
+  ...
+```
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#stack-not-allocation-site")
+slip.setClass(el, "does-not-compile", true)
+```
+
+```
+   |   let symbols @ local = stack_ (gensym_2 ()) in
+                                    ^^^^^^^^^^^^^
+Error: This expression is not an allocation site.
+```
+
+{pause}
+
+{#stack-allocation-escapes}
+```ocaml
+let gensym_2 () = 
+  stack_ [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
+```
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#stack-allocation-escapes")
+slip.setClass(el, "does-not-compile", true)
+```
+
+```
+   |   stack_ [| gensym () ; gensym () |]
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This value escapes its region.
+```
+
+{pause center}
+
+`stack_` allocates the array local to `gensym_2`, but we actually want it to be allocated local to `perf_critical`, *the caller.*
+
+{pause center}
+
+#### The Local Region
+
+<div class="does-not-compile" style="display:grid; grid-template-columns:1fr 1fr; gap: 1em;">
+
+```ocaml
+let gensym_2 () =
+  stack_ [| gensym() 
+         ; gensym () |]
+```
+
+```rust
+fn gensym_2() -> &[String] {
+  let arena = Arena::new();
+  let syms = 
+    arena.alloc([gensym(), gensym()]);
+  return syms;
+}
+```
+
+</div>
+
+We can't return a value pointing to memory in our local region, it gets cleaned up on return!
+
+{pause up}
+
+```ocaml
+let gensym_2 () =
+  exclave_ [| gensym () ; gensym () |]
+```
+
+`exclave_` allocates the value in the caller's local region
+
+{#carousel-memory}
+{pause carousel}
+> <img class="first" style="display: block;" src="./assets/symbols-to-callers-local-1.svg" />
+> <img class="second" style="display: none;" src="./assets/symbols-to-callers-local-2.svg" />
+
+{pause exec}
+```slip-script
+let first = document.querySelector("#carousel-memory .first")
+let second = document.querySelector("#carousel-memory .second")
+slip.setStyle(first, "display", "none")
+slip.setStyle(second, "display", "block")
+```
+
+{pause up}
+
+### `@zero_alloc`
+
+You may want to know if your function is truly `zero_alloc`
+
+{#zero-alloc-check}
+```ocaml
+let[@zero_alloc] gensym_n n =
+  exclave_ Array.init n ~f:(fun _ -> gensym ())
+```
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#zero-alloc-check")
+slip.setClass(el, "does-not-compile", true)
+```
+
+```
+   |   Array.init n ~f:(fun _ -> gensym ())
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: called function may allocate (external call to caml_make_vect)
+```
+
+`[@zero_alloc]` uses an abstract interpreter to check if the extent of your function is zero alloc
+
+{pause}
+
+{#zero-alloc-check-2}
+```ocaml
+let[@zero_alloc] gensym_n n =
+  exclave_ (Array.init[@alloc stack]) n ~f:(fun _ -> gensym ())
+```
+
+{pause exec}
+```slip-script
+let el = document.querySelector("#zero-alloc-check-2")
+slip.setClass(el, "does-not-compile", true)
+```
+
+```
+   |                   gensym ()   
+                       ^^^^^^^^^
+Error: called function may allocate
+```
+
+In the second half of the tutorial we'll make `gensym` zero alloc
+
+{pause up}
+
+## OxCaml So Far
+
+We've seen new keywords like `stack_` and `exclave_` that provide control over memory allocation
+
+{pause}
+
+We've also seen new annotations, like `@ local` and `@ global`
+
+{pause}
+
+Which can appear on let bindings
+
+```ocaml
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
+```
+
+And in type signatures
+
+```ocaml
+val init : int -> f:(int -> 'a) -> 'a array @ global
+
+val gensym_2 : unit -> string array @ local
+```
+
+{pause}
+
+`local` and `global` are instances of OxCaml *modes*
+
+Modes are how how OxCaml provides *safety*
 
 {pause up}
 
@@ -102,9 +409,9 @@ els.forEach((el) => {
 
 Example properties
 
-- A value is stack allocated
+- A value doesn't escape the region
 
-- A mutable value is read only
+- A value is unique
 
 {pause center}
 
@@ -116,194 +423,54 @@ Example properties
 
 {pause center}
 
-- A value is unique
-
-{pause center}
-
 - *and many more ...*
 
 {pause}
 
-A property may refine how a value can be used: *a stack-allocated value cannot escape its region*
-
-{pause}
-
-Modes provide safety and control to OxCaml: data-race freedom, control over memory allocation and layout.
-
-{pause up}
-
-# Example 1: Local Values
-
-<div style="display: flex; flex-direction: row; gap: 1em; font-size: 0.75em;">
-
-```ocaml
-let gensym =
-  let count = ref 0 in
-  fun () ->
-   count := !count + 1 ; 
-   "gsym_" ^ (Int.to_string !count)
-
-let gensym_many (n : int): string array = 
-  Array.init n (fun _ -> gensym ())
-
-let performance_critical_code () = 
-  let symbols = gensym_many 5 in 
-  (* ... *)
-```
-
-</div>
-
-{pause}
-
-<div style="display: grid; place-items: center;">
-  <img src="./assets/symbols-heap-array.svg" />
-</div>
+Modes provide safety and control to OxCaml: data-race freedom, safe control over memory allocation and layout.
 
 {pause up}
 
 ## The Locality Axis
 
-The locality axis has two modes: `local` and `global`, with a *submoding* relationship of
+The locality axis has two modes: `local` and `global`
+
+with a *submoding* relationship of `global < local`
 
 <div style="display: grid; place-items: center;">
 
-```example
-global < local
+```ocaml
+let gensym_2 (): string array @ global = 
+  [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  (* Type checks because of submoding *)
+  ...
 ```
 
-
-| Mode | Assumed allocation location |
+| Mode | Property |
 |------|--------------------------|
-| `local` | stack |
-| `global` | heap |
+| `local` | Value doesn't escape the region |
+| `global` |  |
 
 </div>
 
-```ocaml
-let buf_zeros @ local = Array.create ~len:10 0 in
-  ...
-```
-
-The `@ local` is a *mode annotation,* which says that the value `buf_zeros` is at the local mode
+The `@ local` is a *mode annotation*
 
 {pause}
 
-Values at the global mode, a normal OCaml value, is allocated on the GC-managed heap
+Every mode axis has a default value for backwards compatibility with OCaml
 
-Values at the local mode can *safely* be allocated on the stack
-
-{pause center}
-
-{.remark}
-  Local values *cannot* escape their region, if they did, it would lead to a **dangling pointer**
-
-{pause}
-
-<div class="unsafe" style="display:grid; grid-template-columns:1fr 1fr; gap: 0.5em;">
-
-```ocaml
-let small_buffer () =
-  let buf_zeros @ local = 
-    Array.create ~len:10 0 in
-  buf_zeros
-```
-
-```rust
-fn small_buffer() -> &[i32] {
-  let mut arena = Arena::new();
-  let buf_zeros = arena.alloc([10; 0]);
-  return buf_zeros;
-}
-```
-
-</div>
-
-{pause up}
-
-### What could go wrong?
-
-```ocaml
-let () = 
-  let buf_zeros = small_buffer () in
-  ...
-```
-
-{pause}
-
-<div style="display: grid; place-items: center; margin-bottom: 0.5em;">
-  <img src="./assets/buf_zeros-local-alloc.svg" />
-</div>
-
-{pause center}
-
-<div style="display: grid; place-items: center;">
-  <img src="./assets/buf_zeros-dangling-pointer.svg" />
-</div>
-
-{pause center}
-
-**This code doesn't compile,** because modes provide safety
-
-```ocaml
-let small_buffer () =
-  let buf_zeros @ local = Array.create ~len:10 0 in
-  buf_zeros
-```
-
-```
-       buf_zeros
-       ^^^^^^^^^
-Error: This value escapes its region.
-  Hint: Cannot return a local value without an "exclave_" annotation.
-```
-
-{pause center}
-
-{.remark title="Mode Crossing"} 
-> “`int` crosses locality” is something you might hear/read. 
-> 
-> Meaning, `int @ local` and `int @ global` aren't meaningfully different
->
->   Recall that `global < local`, but when a type _mode crosses,_ `local < global` holds true as well
-
-{pause up}
-
-### Zero GC allocation requires cooperation
-
-If you want truly zero GC allocation code, all your callees need to be zero alloc
-
-```ocaml
-val init : int -> f:(int -> 'a) @ local -> 'a array @ global
-```
-
-We have to use a special zero-alloc-version from `Base`
-
-{pause}
-
-```ocaml
-let[@zero_alloc] small_buffer () = exclave_
-  (Array.create [@alloc stack]) ~len:10 0
-```
-
-The `exclave_` keyword indicates that local values are allocated in the *caller's local region*
-
-{pause}
-
-```ocaml
-let () = 
-  let buf_zeros @ local = small_buffer () in
-  ...
-```
-
-`buf_zeros` is now *actually* stack allocated 
-
-We check this with the extension [`[@zero_alloc]`](https://oxcaml.org/documentation/miscellaneous-extensions/zero_alloc_check/)
+The default for locality is the `global` mode
 
 {pause up}
 
 # Example 2: Safe Parallelism
 
-OCaml 5 introduced parallel programming with a multicore-aware runtime and effects...
+OCaml 5 introduced parallel programming with a multicore-aware runtime and effects
+
+{pause}
 
 **it also unleashed chaos:** race conditions, nondeterministic bugs, and hard-to-reason-about code.
 
@@ -315,22 +482,27 @@ OxCaml introduces two mode axes for data-race freedom: contention and portabilit
 
 ## OCaml 5 introduced a new class of error: Data Races
 
+{#unsafe-gensym-n}
 ```ocaml
 module Par_array = Parallel.Arrays.Array
 
-let gensym = 
-  let count = ref 0 in 
-  fun () -> 
+let gensym =
+  let count = ref 0 in
+  fun () ->
     count := !count + 1 ;
-    Printf.sprintf "gsym_%d" !count
+    "gsym_" ^ (Int.to_string !count)
 
-let gen_many par n = 
-  Par_array.init par n (fun _ -> gensym ())
+let gensym_n par n =
+  Par_array.init par n ~f:(fun _ -> gensym ())
 ```
 
-What could happen if `gen_many` is called with $n \geq 2$?
+What could happen if `gensym_n` is called with $n \geq 2$?
 
-{pause}
+{pause exec}
+```slip-script
+let el = document.querySelector("#unsafe-gensym-n");
+slip.setClass(el, "does-not-compile", true)
+```
 
 ```text
 Domain 1                    Domain 2
@@ -349,27 +521,18 @@ Resulting array: `[| "gsym_1"; "gsym_1" |]` Duplicate symbols? Unexpected!
 
 It is *unsafe* to run `gensym` on multiple domains, we want to statically prevent his from happening
 
-<!-- {pause center} -->
-<!---->
-<!-- ### Sequential Consistency -->
-<!---->
-<!-- {.definition #seq-consistency title="Sequential Consistency"} -->
-<!-- A program can be understood by considering all possible **interleavings** -->
-<!-- (but not reorderings) of each domain's operations. -->
-<!---->
-<!-- - Without data-race freedom, there is no sequential consistency. -->
-<!-- - With data-race freedom, sequential consistency can be guaranteed. -->
-<!---->
-<!-- Data-race freedom gives programmers the power to reason intuitively about our code, no matter how buggy it might get. -->
-<!---->
+{pause}
+
+The code does not compile in OxCaml, but does in OCaml
+
 {pause up}
 
 ### Data races require 4 ingredients
 
-1. **Parallel execution** - Code running in different parallel domains
+1. **Parallel execution** - Code running in different parallel domains (read, threads)
 2. **Shared memory** - A location accessible by multiple domains
 3. **At least one write** - One domain is modifying the data
-4. **No synchronization** - The domains are not using `Atomic.t` or similar
+4. **No synchronization** - No atomics, etc
 
 {pause}
 
@@ -384,103 +547,136 @@ let gensym =
 
 let gen_many par n = 
   (* (1) parallel execution, when n > 1 *)
-  Par_array.init par n (fun _ -> gensym ())
+  Par_array.init par n ~f:(fun _ -> gensym ())
 ```
+
+{pause center}
+
+The lambda `(fun _ -> gensym ())` must be safe to share across domains
 
 {pause}
 
-Removing any one of these ingredients results in race-free code.
+The function `gensym` must also be safe to share across domains
+
+{pause}
+
+`gensym` closes over a non-synchronized mutable reference, and *reads* and *writes* to it
+
+{pause}
+
+Therefore, `gensym` is not safe to share across domains 
+
+`(fun _ -> gensym ())` is not safe to share across domains
 
 {pause up}
 
-## Modes for Parallelism
+## Modes for Safe Parallelism
 
 There are two key mode axes for expressing parallelism constraints
 
 {pause}
 
-### Contention: What access do I have to this shared memory?
+{#contention-portability-container}
+> {.port-area}
+> > ### Portability<span class="subtitle">: Is this value (function) safe to share across domains?</span>
+> > 
+> > <div style="display: grid; place-items: center;">
+> > 
+> > `portable < nonportable`
+> > 
+> > 
+> > | Mode  | Property |
+> > |------|--------------------------|
+> > | `nonportable` | Cannot be shared across domains |
+> > | `portable` |  |
+> > 
+> > </div>
+> > 
+> > {pause-block #gensym-par-array-aside}
+> > > {.does-not-compile}
+> > > ```ocaml
+> > > let gensym @ portable = 
+> > >   let count = ref 0 in
+> > >   fun () -> 
+> > >     count := !count + 1 ;
+> > >     "gsym_" ^ (Int.to_string !count)
+> > >
+> > > let gen_many par n = 
+> > >   Par_array.init par n ~f:(fun _ -> gensym ())
+> > > ```
+> > > {pause}
+> > > ```ocaml
+> > > val Par_array.init : Parallel_kernel.t -> int 
+> > >   -> f:(int -> 'a @ portable) @ portable (* <-- *)
+> > >   -> t
+> > > ```
+> > 
+> > {pause exec}
+> > ```slip-script
+> > let el = document.querySelector("#gensym-par-array-aside")
+> > slip.setStyle(el, "display", "none")
+> > ```
+> > 
+> {.cont-area}
+> > ### Contention<span class="subtitle">: What access do I have to this shared memory?</span>
+> > 
+> > <div style="display: grid; place-items: center;">
+> > 
+> > `uncontended < shared < contended`
+> > 
+> > | Mode | Property |
+> > |------|--------------------------|
+> > | `contended` | Cannot *read* or *write* |
+> > | `shared` | Cannot *write* |
+> > | `uncontended` | |
+> > 
+> > </div>
 
-<div style="display: grid; place-items: center; gap: 2em;">
-
-`uncontended < shared < contended`
-
-
-
-| Mode | Access to mutable fields |
-|------|--------------------------|
-| `uncontended` | RW |
-| `shared` | R |
-| `contended` |  |
-
-
-</div>
-
-{pause}
-
-<div class="unsafe">
-
-```ocaml
-let gensym = 
-  let count @ uncontended = ref 0 in
-  fun () -> 
-    count := !count + 1 ;
-    "gsym_" ^ (Int.to_string !count)
+{pause exec}
+```slip-script
+let el = document.querySelector("#contention-portability-container")
+slip.setClass(el, "cont-port-container", true)
 ```
 
-</div>
-
-{pause center}
-
-### Portability: Is this value safe to share across domains?
-
-<div style="display: grid; place-items: center; gap: 2em;">
-
-`portable < nonportable`
-
-
-| Mode  | Safe to access from domain |
-|------|--------------------------|
-| `portable` | any |
-| `nonportable` | creator |
-
-</div>
-
-{pause center}
+{pause}
 
 {.theorem}
-Portable functions **cannot** close over uncontended values
+  References captured by portable functions are `contended`
 
-{pause center}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; align-items: start;">
 
-<div class="unsafe">
-
+{#gensym-par-array-code}
 ```ocaml
 let gensym @ portable = 
-  let count @ uncontended = ref 0 in
+  let count = ref 0 in
   fun () -> 
     count := !count + 1 ;
     "gsym_" ^ (Int.to_string !count)
+```
 
-let gen_many par n = 
-  Par_array.init par n (fun _ -> gensym ())
+{pause exec}
+```slip-script
+let el = document.querySelector("#gensym-par-array-code")
+slip.setClass(el, "does-not-compile", true)
+```
+
+```
+  count := !count + 1 ;
+  ^^^^^
+Error: This value is contended but 
+expected to be uncontended.
 ```
 
 </div>
-
-{pause}
-
-`gensym` is not portable and this code fails to type check
 
 {pause up}
 
 ## Safely Working with Mutable State
 
-Sometimes we actually need shared mutable state, OxCaml provides three components:
+Sometimes we actually need shared mutable state, OxCaml provides two types:
 
-1. Use **atomics** for shared counters
-2. Use **capsules** for deeply mutable structures
-3. Use **parallel arrays** for array-based algorithms
+1. **Atomics** for simple operations
+2. **Capsules** atomizing complex operations
 
 {pause}
 
@@ -488,7 +684,7 @@ Sometimes we actually need shared mutable state, OxCaml provides three component
 
 ```ocaml
 let gensym @ portable = 
-  let count @ contended = Atomic.make 0 in 
+  let count = Atomic.make 0 in 
   fun () -> 
     let n = Atomic.fetch_and_add count 1 in 
     "gsym_" ^ (Int.to_string n)
@@ -496,13 +692,15 @@ let gensym @ portable =
 
 {pause}
 
-`Atomic.t` crosses portability and contention
+Because `Atomic.t` provides synchronization, it crosses portability and contention
 
 {pause}
 
+What if `fetch_and_add` didn't exist?
+
 ```ocaml
 let gensym @ portable =
-  let count @ contended = Atomic.make 0 in
+  let count = Atomic.make 0 in
   fun () ->
     Atomic.incr count ;
     let n = Atomic.get count in
@@ -511,7 +709,7 @@ let gensym @ portable =
 
 {pause center}
 
-`Atomic.t` is more expensive than regular operations and **only prevents data races, not race conditions!**
+Atomics prevent data races, *but not race conditions.* The read and write should be a single atomic operation
 
 {pause up}
 
@@ -526,6 +724,10 @@ Associate mutable state with locks, ensuring exclusive access. Capsules use the 
 
 {pause #capsules}
 
+⚠️ **A simpler interface is coming, the following may hurt your eyes** ⚠️
+
+{pause}
+
 ```ocaml
 let gensym = 
   (* 1. Create encapsulated data *)
@@ -536,144 +738,67 @@ let gensym =
   let mutex = Capsule.Mutex.create key in (* 3. Create mutex from key *)
 
   (* 4. Access with lock *)
-  let increment () =
+  let fetch_and_incr () =
     Capsule.Mutex.with_lock mutex ~f:(fun password ->
       Capsule.Data.extract counter ~password ~f:(fun c ->
         c := !c + 1 ; !c))
   in
-  fun () -> "gsym_" ^ (Int.to_string (increment ()))
-
+  fun () -> "gsym_" ^ (Int.to_string (fetch_and_incr ()))
 ```
 
 {pause up}
 
-# Example 3: Putting it Together, Quicksort
+# Activity!
 
-Your favorite sorting algorithm is trivially parallelizable
+Visit 
 
-```ocaml
-let swap : 'a Slice.t @ local -> i:int -> j:int -> unit
-  = ...
+<div style="display: grid; place-items: center;">
 
-let partition : int Slice.t @ local -> int
-  = ...
+[TODO]()
 
-let rec quicksort slice =
-  if Slice.length slice > 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
+</div>
 
-    let left = Slice.sub slice ~i:0 ~j:pivot in
-    let right = Slice.sub slice ~i:pivot ~j:length in
 
-    quicksort left;
-    quicksort right
-  )
-```
-
-{pause center}
-
-A few things
-
-- A slice is a `local` view of a portion of an array
-
-- A slice *borrows* a segment of the array, only allowing access to a contiguous subset of its indices
+and complete a short activity on OxCaml modes! This will help with the live programming in the next half
 
 {pause up}
 
-```ocaml
-let rec quicksort parallel slice =
-  if Slice.length slice > 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
-
-    let left = Slice.sub slice ~i:0 ~j:pivot in
-    let right = Slice.sub slice ~i:pivot ~j:length in
-
-    let (), () = Parallel.fork_join2 parallel
-      (fun parallel -> quicksort parallel left)
-      (fun parallel -> quicksort parallel right)
-    in ()
-  )
-```
-
-Is this code safe (i.e., no data races)? Does it type check?
-
-```ocaml
-val sub : i:int -> j:int 
-  -> 'a Slice.t @ local uncontended 
-  -> 'a t @ local uncontended
-
-val fork_join2 :  Parallel.t @ local
-  -> (Parallel.t @ local -> 'a) @ local
-  -> (Parallel.t @ local -> 'b) @ portable
-  -> 'a * 'b
-```
-
-{pause up}
-
-```ocaml
-let rec quicksort parallel (slice @ uncontended) =
-  if Slice.length slice > 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
-
-    let left @ uncontended = Slice.sub slice ~i:0 ~j:pivot in
-    let right @ uncontended = Slice.sub slice ~i:pivot ~j:length in
-
-    let (), () = Parallel.fork_join2 parallel
-      (fun parallel -> quicksort parallel left) (* @ portable *)
-      (fun parallel -> quicksort parallel right) (* @ portable *)
-    in ()
-  )
-```
-
-{pause}
+# OxCaml Summary <img style="float: right;" src="./assets/oxcaml-normal.svg" width="200px" height="200px" />
 
 {.remark}
-Portable functions cannot close over uncontended references!
+> **Session resumes at 1600:** *program in OxCaml and ask the experts anything!*<br/>
+>
+> **OxCaml “office hours” daily:** XXXX-XXXX @ the Jane Street booth<br/>
+> *Can't make it?* Email me at [`gavinleroy@brown.edu`](mailto:gavinleroy@brown.edu)
 
-{pause center}
+OxCaml provides *safe control* over performance-critical aspects of program behavior
+
+- New keywords (e.g., `stack_` and `exclave_`) provide control over memory
+
+- Modes provide the *safety:* for memory and parallelism
+
+
+
+<div style="display: flex; flex-direction: row; gap: 0.25em; flex-wrap: wrap; font-size: 1em;">
 
 ```ocaml
-let rec quicksort parallel slice =
-  if Slice.length slice > 1 then (
-    let pivot = partition slice in
-
-    let (), () = Slice.fork_join2 parallel slice ~pivot
-      (fun parallel left -> quicksort parallel left) 
-      (fun parallel right -> quicksort parallel right)
-    in ()
-  )
+let gensym_n par n =
+  Par_array.init par n 
+    ~f:(fun _ -> gensym ())
+                 ^^^^^^
+Error: The value gensym is nonportable, 
+  so cannot be used inside a function 
+  that is portable.
 ```
 
-{pause center}
+```ocaml
+let[@zero_alloc] gensym_n n = exclave_ 
+  (Array.init[@alloc stack]) 
+    n ~f:(fun _ -> gensym ())
 
-Sorting an array of 4,000,000 elements takes
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
+```
 
-| # Domains | Execution (s) |
-|-|-|
-| 1 | 10.99 |
-| 2 | 5.96|
-| 4 | 3.06 |
-| 8 | 1.83 |
-
-
-{pause up}
-
-# Activity 2
-
-TODO
-
-{pause up}
-
-## To be continued ...
-
-TODO
-
-{pause up}
-
-# Summary
-
-TODO
-
+</div>

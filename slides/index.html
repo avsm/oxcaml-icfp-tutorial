@@ -317,12 +317,12 @@ body.slipshow-drawing-mode {
 
 body {
   font-family: "Charter", serif;
-  font-size: 1rem;
+  font-size: 1em;
 }
 
 pre, code {
   font-family: "Fira Mono", monospace;
-  font-size: 0.85rem;
+  font-size: 0.85em;
 }
 
 ul {
@@ -336,14 +336,71 @@ a {
 table {
 	text-align: left;
 	border-collapse: collapse;
+
+  &tr:first-child {
+    border-bottom: 2px solid;
+  }
 }
 
-table tr:first-child {
-  border-bottom: 2px solid;
-}
 
-table td {
+table td, th {
   padding-right: 1em;
+}
+
+#contention-portability-container { }
+
+.cont-port-container {
+  display: grid;
+  grid-template-areas: 
+    'port cont'
+    'info info';
+
+  p code { margin: 0; }
+  .port-area { grid-area: port; }
+  .cont-area { grid-area: cont; }
+  .subtitle { display: none; }
+}
+
+.does-not-compile {
+
+  pre&, pre {
+    position: relative;
+  }
+
+  code&, code {
+    border: 3px solid #FF43A4;
+
+    &::after {
+      position: absolute; top: -2em; right: 0;
+      content: url(assets/oxcaml.svg);
+      height: 100px;
+      width: 100px;
+    }
+    /*
+    &.language-rust::after {
+      content: url(assets/ferris.svg);
+      height: 100px;
+      width: 100px;
+    }
+
+    &.language-ocaml::after {
+      content: url(assets/oxcaml.svg);
+      height: 100px;
+      width: 100px;
+    }
+    */
+  }
+}
+
+.correct {
+  position: relative;
+
+  &::before {
+    position: absolute; top: 0; left: 0;
+    content: "✓";
+    color: green;
+    font-size: 2em;
+  }
 }
 
 .slip-body, .slide-body {
@@ -1833,55 +1890,238 @@ relevance:0},{begin:/->/}]})})();hljs.registerLanguage("ocaml",e)})();</script>
         <div class="slipshow-rescaler">
           <div class="slip">
             <div class="slip-body">
-              <h1 id="oxidized-ocaml-safe-control-over-program-behavior"><a class="anchor" aria-hidden="true" href="#oxidized-ocaml-safe-control-over-program-behavior"></a><span>Oxidized OCaml: </span><em><span>safe control over program behavior</span></em></h1>
+              <h1 id="oxcaml-safe-control-over-program-behavior"><a class="anchor" aria-hidden="true" href="#oxcaml-safe-control-over-program-behavior"></a><span>OxCaml: </span><em><span>safe control over program behavior</span></em></h1>
 <h2 id="icfp-tutorial"><a class="anchor" aria-hidden="true" href="#icfp-tutorial"></a><span>ICFP Tutorial</span></h2>
 <p><span>Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino</span></p>
-<p><span>Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris</span></p>
-<hr>
-<p><span>You know a language is </span><del><span>complicated</span></del><span> </span><em><span>cool</span></em><span> when this many people consult on a tutorial</span></p>
-<div up-at-unpause pause></div>
-<h2 id="activity-1"><a class="anchor" aria-hidden="true" href="#activity-1"></a><span>Activity 1</span></h2>
-<p><em><span>Note, this is a stand in for the real activity, which will be hosted online</span></em></p>
-<p><span>TODO</span></p>
-<div up-at-unpause pause></div>
-<h2 id="types-provide-safety"><a class="anchor" aria-hidden="true" href="#types-provide-safety"></a><span>Types Provide Safety</span></h2>
-<pre><code class="language-ocaml">&quot;hello&quot; + 42
- ^^^^^
-Error: expression has type  
- string 
-but an expression was expected of type  
- int
-</code></pre>
-<div pause></div>
-<h3 id="multicore-ocaml-introduced-parallelism"><a class="anchor" aria-hidden="true" href="#multicore-ocaml-introduced-parallelism"></a><span>MultiCore OCaml Introduced Parallelism</span></h3>
-<pre><code class="language-ocaml">let gensym = 
-  let count = ref 0 in 
-  fun () -&gt; 
-    count := !count + 1 ;
-    &quot;gsym_&quot; ^ (Int.to_string !count)
-
-let gen_many par n = 
-  Par_array.init par n (fun _ -&gt; gensym ())
-</code></pre>
-<p><span pause></span><span> ... and data races, nondeterministic bugs, etc  :(</span></p>
-<p><em><span>OCaml types can't prevent all unsafe actions</span></em></p>
+<p><span>Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek</span></p>
+<!-- {pause up} -->
+<!---->
+<!-- ## Types Provide Safety -->
+<!---->
+<!-- ```ocaml -->
+<!-- "hello" + 42 -->
+<!--  ^^^^^ -->
+<!-- Error: expression has type   -->
+<!--  string  -->
+<!-- but an expression was expected of type   -->
+<!--  int -->
+<!-- ``` -->
 <div up-at-unpause pause></div>
 <h2 id="oxcaml-provides"><a class="anchor" aria-hidden="true" href="#oxcaml-provides"></a><span>OxCaml provides</span></h2>
 <p><em><span>Safe control</span></em><span> over performance-critical aspects of program behavior, </span><em><span>in OCaml</span></em></p>
 <div pause></div>
 <ul>
-<li>
-<p><strong><span>Control:</span></strong><span> over allocation and memory layout</span></p>
-</li>
-<li>
-<p><strong><span>Safe:</span></strong><span> data-race freedom, memory safety</span></p>
-</li>
-<li>
-<p><strong><span>in OCaml:</span></strong><span> every OCaml program is a valid OxCaml program</span></p>
-</li>
+<li><strong><span>Control:</span></strong><span> over allocation and memory layout</span></li>
 </ul>
 <div pause></div>
-<p><span>OxCaml achieves control and safety via </span><em><span>modes</span></em></p>
+<ul>
+<li><strong><span>Safe:</span></strong><span> data-race freedom, memory safety</span></li>
+</ul>
+<div pause></div>
+<ul>
+<li><strong><span>in OCaml:</span></strong><span> OxCaml is a superset of OCaml, so every OCaml program is a valid OxCaml program</span></li>
+</ul>
+<div up-at-unpause pause></div>
+<h1 id="example-1-safe-stack-allocation"><a class="anchor" aria-hidden="true" href="#example-1-safe-stack-allocation"></a><span>Example 1: Safe Stack Allocation</span></h1>
+<pre><code class="language-ocaml">let gensym =
+  let count = ref 0 in
+  fun () -&gt;
+    count := !count + 1 ;
+    &quot;gsym_&quot; ^ (Int.to_string !count) 
+</code></pre>
+<div pause></div>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols = [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<div pause></div>
+<div style="display: grid; grid-template-columns: auto auto; gap: 1em;">
+<div id="memory-layout-correct">
+  <img src="./assets/symbols-heap-array.svg" />
+</div>
+  <img src="./assets/symbols-heap-array-inline-syms.svg" />
+</div>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#memory-layout-correct")
+console.log(el)
+slip.setClass(el, "correct", true)</script>
+<div pause></div>
+<p><span>What “bad thing” could happen given these allocations? </span><span pause></span><span> </span><em><span>garbage-collection cycle</span></em></p>
+<div center-at-unpause pause></div>
+<p><span>What do we need to know/do to avoid this?</span></p>
+<div pause></div>
+<ol>
+<li><span>Escape analysis: does </span><code>symbols</code><span> escape this function region?</span></li>
+</ol>
+<div pause></div>
+<ol start="2">
+<li><span>Update the code to allocated the array on the stack</span></li>
+</ol>
+<div up-at-unpause pause></div>
+<h2 id="oxcaml-escape-analysis"><a class="anchor" aria-hidden="true" href="#oxcaml-escape-analysis"></a><span>OxCaml Escape Analysis</span></h2>
+<div pause></div>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols = [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<div pause></div>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols @ local = [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<div pause></div>
+<p><span>Every value is either </span><code>@ local</code><span> or </span><code>@ global</code><span>, the latter is the </span><em><span>OCaml default</span></em></p>
+<div pause></div>
+<p><span>A value is </span><code>@ local</code><span> if it doesn't escape the current region</span></p>
+<div pause></div>
+<p><span>A value </span><code>@ local</code><span> </span><em><span>could be locally allocated</span></em></p>
+<div up-at-unpause pause></div>
+<h2 id="oxcaml-local-allocation"><a class="anchor" aria-hidden="true" href="#oxcaml-local-allocation"></a><span>OxCaml Local Allocation</span></h2>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols @ local = [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<p><span>We assert that </span><code>symbols</code><span> is local and doesn't escape the current region</span></p>
+<p><em><span>How can we ensure that it's locally allocated?</span></em></p>
+<div pause></div>
+<p><span>OxCaml provides new keywords for allocation: </span><code>stack_</code><span> and </span><code>exclave_</code></p>
+<div pause></div>
+<h3 id="using-stack_"><a class="anchor" aria-hidden="true" href="#using-stack_"></a><span>Using </span><code>stack_</code></h3>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols @ local = stack_ [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<div pause></div>
+<p><span>This turns the allocation site for </span><code>[| |]</code><span> into a </span><em><span>local allocation</span></em></p>
+<div center-at-unpause pause></div>
+<div style="display: grid; grid-template-rows: 1fr 1fr;">
+<div id="memory-layout-local-correct">
+  <img src="./assets/symbols-local-to-heap.svg" />
+</div>
+  <img src="./assets/symbols-local-inlined.svg" />
+</div>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#memory-layout-local-correct")
+slip.setClass(el, "correct", true)</script>
+<div center-at-unpause pause></div>
+<p><code>stack_</code><span> controls the allocation </span><em><span>only</span></em><span> for the </span><code>[| |]</code><span>, </span><code>gensym</code><span> still allocates the strings on the heap!</span></p>
+<div pause></div>
+<pre><code class="language-ocaml">val gensym : unit -&gt; string
+</code></pre>
+<div pause></div>
+<pre><code class="language-ocaml">val gensym : unit -&gt; string @ global
+</code></pre>
+<div pause></div>
+<p><span>Local allocation requires cooperation from </span><em><span>all callees!</span></em></p>
+<div up-at-unpause pause></div>
+<h3 id="using-exclave_"><a class="anchor" aria-hidden="true" href="#using-exclave_"></a><span>Using </span><code>exclave_</code></h3>
+<p><span>We may want to use a helper function to create the array</span></p>
+<pre id="stack-not-allocation-site"><code class="language-ocaml">let gensym_2 () = 
+  [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = stack_ (gensym_2 ()) in
+  ...
+</code></pre>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#stack-not-allocation-site")
+slip.setClass(el, "does-not-compile", true)</script>
+<pre><code>   |   let symbols @ local = stack_ (gensym_2 ()) in
+                                    ^^^^^^^^^^^^^
+Error: This expression is not an allocation site.
+</code></pre>
+<div pause></div>
+<pre id="stack-allocation-escapes"><code class="language-ocaml">let gensym_2 () = 
+  stack_ [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
+</code></pre>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#stack-allocation-escapes")
+slip.setClass(el, "does-not-compile", true)</script>
+<pre><code>   |   stack_ [| gensym () ; gensym () |]
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This value escapes its region.
+</code></pre>
+<div center-at-unpause pause></div>
+<p><code>stack_</code><span> allocates the array local to </span><code>gensym_2</code><span>, but we actually want it to be allocated local to </span><code>perf_critical</code><span>, </span><em><span>the caller.</span></em></p>
+<div center-at-unpause pause></div>
+<h4 id="the-local-region"><a class="anchor" aria-hidden="true" href="#the-local-region"></a><span>The Local Region</span></h4>
+<div class="does-not-compile" style="display:grid; grid-template-columns:1fr 1fr; gap: 1em;">
+<pre><code class="language-ocaml">let gensym_2 () =
+  stack_ [| gensym() 
+         ; gensym () |]
+</code></pre>
+<pre><code class="language-rust">fn gensym_2() -&gt; &amp;[String] {
+  let arena = Arena::new();
+  let syms = 
+    arena.alloc([gensym(), gensym()]);
+  return syms;
+}
+</code></pre>
+</div>
+<p><span>We can't return a value pointing to memory in our local region, it gets cleaned up on return!</span></p>
+<div up-at-unpause pause></div>
+<pre><code class="language-ocaml">let gensym_2 () =
+  exclave_ [| gensym () ; gensym () |]
+</code></pre>
+<p><code>exclave_</code><span> allocates the value in the caller's local region</span></p>
+<div id="carousel-memory" carousel pause>
+<img class="first" style="display: block;" src="./assets/symbols-to-callers-local-1.svg" />
+<img class="second" style="display: none;" src="./assets/symbols-to-callers-local-2.svg" />
+</div>
+<script type=slip-script exec-at-unpause pause>
+let first = document.querySelector("#carousel-memory .first")
+let second = document.querySelector("#carousel-memory .second")
+slip.setStyle(first, "display", "none")
+slip.setStyle(second, "display", "block")</script>
+<div up-at-unpause pause></div>
+<h3 id="zero_alloc"><a class="anchor" aria-hidden="true" href="#zero_alloc"></a><code>@zero_alloc</code></h3>
+<p><span>You may want to know if your function is truly </span><code>zero_alloc</code></p>
+<pre id="zero-alloc-check"><code class="language-ocaml">let[@zero_alloc] gensym_n n =
+  exclave_ Array.init n ~f:(fun _ -&gt; gensym ())
+</code></pre>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#zero-alloc-check")
+slip.setClass(el, "does-not-compile", true)</script>
+<pre><code>   |   Array.init n ~f:(fun _ -&gt; gensym ())
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: called function may allocate (external call to caml_make_vect)
+</code></pre>
+<p><code>[@zero_alloc]</code><span> uses an abstract interpreter to check if the extent of your function is zero alloc</span></p>
+<div pause></div>
+<pre id="zero-alloc-check-2"><code class="language-ocaml">let[@zero_alloc] gensym_n n =
+  exclave_ (Array.init[@alloc stack]) n ~f:(fun _ -&gt; gensym ())
+</code></pre>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#zero-alloc-check-2")
+slip.setClass(el, "does-not-compile", true)</script>
+<pre><code>   |                   gensym ()   
+                       ^^^^^^^^^
+Error: called function may allocate
+</code></pre>
+<p><span>In the second half of the tutorial we'll make </span><code>gensym</code><span> zero alloc</span></p>
+<div up-at-unpause pause></div>
+<h2 id="oxcaml-so-far"><a class="anchor" aria-hidden="true" href="#oxcaml-so-far"></a><span>OxCaml So Far</span></h2>
+<p><span>We've seen new keywords like </span><code>stack_</code><span> and </span><code>exclave_</code><span> that provide control over memory allocation</span></p>
+<div pause></div>
+<p><span>We've also seen new annotations, like </span><code>@ local</code><span> and </span><code>@ global</code></p>
+<div pause></div>
+<p><span>Which can appear on let bindings</span></p>
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
+</code></pre>
+<p><span>And in type signatures</span></p>
+<pre><code class="language-ocaml">val init : int -&gt; f:(int -&gt; 'a) -&gt; 'a array @ global
+
+val gensym_2 : unit -&gt; string array @ local
+</code></pre>
+<div pause></div>
+<p><code>local</code><span> and </span><code>global</code><span> are instances of OxCaml </span><em><span>modes</span></em></p>
+<p><span>Modes are how how OxCaml provides </span><em><span>safety</span></em></p>
 <div up-at-unpause pause></div>
 <h1 id="a-conceptual-overview-of-modes"><a class="anchor" aria-hidden="true" href="#a-conceptual-overview-of-modes"></a><span>A Conceptual Overview of Modes</span></h1>
 <p id="values-container"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:lucid="lucid" width="1163" height="499.13"><g transform="translate(80 -170.9924320524919)" lucid:page-tab-id="0_0"><path id="green-circle" style="visibility: hidden;" d="M333.9 357.88c27.12 101.18-19.16 201.5-103.35 224.05C146.35 604.5 56.12 540.76 29 439.57 1.9 338.4 48.18 238.07 132.38 215.52c84.2-22.56 174.43 41.17 201.54 142.36z" stroke="#008a0e" stroke-width="6" fill="#e3fae3" opacity=".55"/><path d="M-80 218.66a6 6 0 0 1 6-6H36a6 6 0 0 1 6 6V254a6 6 0 0 1-6 6H-74a6 6 0 0 1-6-6z" fill="none"/><use xlink:href="#a" transform="matrix(1,0,0,1,-75,217.65666666666667) translate(0 29.422222222222224)"/><path id="blue-circle" style="visibility: hidden;" d="M520 450.83c309.28 0 560 41.57 560 92.84 0 51.28-250.72 92.84-560 92.84s-560-41.55-560-92.83c0-51.27 250.72-92.84 560-92.84z" stroke="#1071e5" stroke-width="6" fill="#edf5ff" opacity=".55"/><path d="M860 628.78a6 6 0 0 1 6-6h91.34a6 6 0 0 1 6 6v35.35a6 6 0 0 1-6 6H866a6 6 0 0 1-6-6z" fill="none"/><use xlink:href="#b" transform="matrix(1,0,0,1,865,627.7827910595806) translate(0 29.422222222222224)"/><path d="M181.72 380.9a6 6 0 0 1 6.5-5.48l109.6 9.33a6 6 0 0 1 5.47 6.5l-3 35.2a6 6 0 0 1-6.5 5.48l-109.6-9.34a6 6 0 0 1-5.48-6.5z" fill="none"/><use xlink:href="#c" transform="matrix(0.9963926468233906,0.08486279135332517,-0.08486279135332517,0.9963926468233906,186.7865595672082,380.3146146663196) translate(0 29.422222222222224)"/><path d="M78.1 511.1a6 6 0 0 1 4.8-7.02l144.8-27.28a6 6 0 0 1 7 4.78l6.54 34.74a6 6 0 0 1-4.8 7L91.67 550.6a6 6 0 0 1-7-4.78z" fill="none"/><use xlink:href="#d" transform="matrix(0.9827114579231514,-0.1851437022060278,0.1851437022060278,0.9827114579231514,82.8340227580915,509.1777947113727) translate(0 29.422222222222224)"/><path d="M97.82 297.22a6 6 0 0 1 4.83-6.97l108.22-19.73a6 6 0 0 1 6.98 4.83l6.34 34.77a6 6 0 0 1-4.84 6.98l-108.22 19.72a6 6 0 0 1-6.98-4.83z" fill="none"/><use xlink:href="#e" transform="matrix(0.9837957128643415,-0.17929304322739922,0.17929304322739922,0.9837957128643415,102.55982116223828,295.3438679339185) translate(0 29.422222222222224)"/><path d="M362.26 301.35a6 6 0 0 1 6.63-5.3l72.2 8.2a6 6 0 0 1 5.3 6.63l-3.98 35.1a6 6 0 0 1-6.64 5.3l-72.2-8.18a6 6 0 0 1-5.3-6.63z" fill="none"/><use xlink:href="#f" transform="matrix(0.9936523829624697,0.11249418577422304,-0.11249418577422304,0.9936523829624697,367.3374633795341,300.91817518295255) translate(0 29.422222222222224)"/><path d="M381.67 401.63a6 6 0 0 1 5.33-6.6l183.62-19.75a6 6 0 0 1 6.6 5.32l3.78 35.15a6 6 0 0 1-5.32 6.6L392.06 442.1a6 6 0 0 1-6.6-5.33z" fill="none"/><use xlink:href="#g" transform="matrix(0.9942709500440366,-0.10688909157874266,0.10688909157874266,0.9942709500440366,386.538321427676,400.0988205705683) translate(0 29.422222222222224)"/><path d="M342.8 517.38a6 6 0 0 1 6.4-5.58l128.38 8.74a6 6 0 0 1 5.58 6.4l-2.4 35.26a6 6 0 0 1-6.4 5.58L346 559.03a6 6 0 0 1-5.6-6.4z" fill="none"/><use xlink:href="#h" transform="matrix(0.9976881240025671,0.06795886420650525,-0.06795886420650525,0.9976881240025671,347.86604546006356,516.7199266899072) translate(0 29.422222222222224)"/><path d="M548.75 265.86a6 6 0 0 1 7.14-4.6l235.2 50.95a6 6 0 0 1 4.6 7.15l-7.48 34.54a6 6 0 0 1-7.13 4.58l-235.24-50.94a6 6 0 0 1-4.6-7.13z" fill="none"/><use xlink:href="#i" transform="matrix(0.977341646170929,0.21166791599082405,-0.21166791599082405,0.977341646170929,553.8494333536261,265.9450478108088) translate(0 29.422222222222224)"/><use xlink:href="#j" transform="matrix(0.977341646170929,0.21166791599082405,-0.21166791599082405,0.977341646170929,553.8494333536261,265.9450478108088) translate(74.66666666666667 29.422222222222224)"/><use xlink:href="#k" transform="matrix(0.977341646170929,0.21166791599082405,-0.21166791599082405,0.977341646170929,553.8494333536261,265.9450478108088) translate(130.66666666666669 29.422222222222224)"/><use xlink:href="#l" transform="matrix(0.977341646170929,0.21166791599082405,-0.21166791599082405,0.977341646170929,553.8494333536261,265.9450478108088) translate(186.66666666666669 29.422222222222224)"/><g><path d="M524.04 485.97a6 6 0 0 1 6.55-5.38l406.72 39.88a6 6 0 0 1 5.38 6.56l-3.45 35.17a6 6 0 0 1-6.55 5.4l-406.73-39.9a6 6 0 0 1-5.38-6.55z" fill="none"/></g><g><use xlink:href="#m" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(0 29.422222222222224)"/><use xlink:href="#n" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(56 29.422222222222224)"/><use xlink:href="#o" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(112 29.422222222222224)"/><use xlink:href="#p" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(186.66666666666669 29.422222222222224)"/><use xlink:href="#q" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(280 29.422222222222224)"/><use xlink:href="#r" transform="matrix(0.9952232586205584,0.09762512740415365,-0.09762512740415365,0.9952232586205584,529.1098896044859,485.4642419301234) translate(373.33333333333337 29.422222222222224)"/></g><defs><path d="M283-96c58 0 110-29 79-79-30-25-62-31-117-47-91-27-162-58-164-162-3-194 323-203 445-100l-63 93c-49-30-98-45-147-45-53 0-93 23-66 64 70 49 225 51 265 131 13 21 20 49 20 82C533 57 163 54 48-63l79-89c48 37 100 56 156 56" id="s"/><path d="M327-181c-9 94 114 82 169 49l52 101C498 1 440 17 374 17c-132 1-205-70-205-198v-241H58v-109h111v-115l158-19v134h171l-16 109H327v241" id="t"/><path d="M294-412c35-79 80-132 181-135 32 0 61 5 88 16l-29 222H434v-98c-69 14-110 80-131 149v152h105V0H75v-106h70v-320H75v-105h191" id="u"/><path d="M299-809c52-2 94 38 93 89 1 52-40 90-93 89-52 2-95-38-94-89-1-51 42-91 94-89zm95 701h136V0H86v-108h150v-315H91v-108h303v423" id="v"/><path d="M321-432c-45 0-66 30-93 61V0H70v-531h138l11 61c43-46 85-77 165-79 94-1 146 63 146 159V0H372v-344c-2-57-3-88-51-88" id="w"/><path d="M292-548c116 0 174-24 250-68l36 116c-35 14-86 21-153 21 60 28 103 58 103 137 0 138-138 196-287 172-10 4-17 17-17 30 2 51 95 29 146 32 111 6 202 49 202 154 0 133-128 177-284 176-152-2-254-28-257-171h140c0 65 52 65 121 67 74-1 123-6 123-61 0-66-93-53-161-53C163 4 90-26 90-101c0-47 27-81 59-101-59-33-94-70-94-152 0-131 102-194 237-194zm4 103c-52-1-82 37-81 89-1 54 30 91 81 91 55 0 82-35 81-93 0-58-27-87-81-87" id="x"/><g id="a" style="visibility: hidden;"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#s"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#t"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#u"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#v"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#w"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#x"/></g><path d="M375 17c-126 1-186-78-186-204v-447H33v-108h314v575c-5 71 92 68 144 43l37 106c-43 23-94 35-153 35" id="y"/><path d="M300-549c163-2 258 116 258 282 0 171-91 285-258 284C133 18 40-95 42-266s89-279 258-283zm0 117c-81 0-94 69-95 166 2 98 14 167 95 167s93-71 95-168c-1-96-14-165-95-165" id="z"/><path d="M352-108c52-2 81-21 118-45l70 100c-47 39-113 70-197 70C169 14 69-89 69-262c0-174 103-283 277-287 87 1 143 25 194 67l-68 95c-39-27-78-40-119-40-79 0-119 55-119 165-1 98 32 151 118 154" id="A"/><path d="M517-153c0 38 8 53 35 64L519 15c-63-7-105-26-130-70-36 43-99 72-174 72C111 20 34-50 35-150c3-153 155-192 330-181 5-70-27-100-105-101-47 1-106 14-146 28L78-509c57-22 135-39 207-40 155 0 232 63 232 188v208zM269-96c41-1 82-27 96-58v-87c-92-6-167 15-167 80 0 42 27 65 71 65" id="B"/><g id="b" style="visibility: hidden;"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#y"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#z"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#A"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#B"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#y"/></g><path d="M164-739h105l-16 260h-74zm167 0h105l-15 260h-74" id="C"/><path d="M447-538c76 0 102 52 102 146V0h-77v-378c-4-59 6-89-41-94-34 0-65 21-92 63V0h-78v-378c-4-59 6-89-41-94-34 0-65 21-92 63V0H51v-527h65l6 62c29-39 54-71 114-73 49 0 81 23 95 70 29-39 56-70 116-70" id="D"/><path d="M167-234c1 104 57 173 153 175 63-1 97-20 141-47l39 56c-43 34-108 60-180 61C164 13 77-104 79-263c3-156 76-272 229-275 155-3 231 134 213 304H167zm274-64c0-99-41-171-132-171-93 0-138 73-142 171h274" id="E"/><path d="M519-27c-32 22-89 38-142 38-104 2-177-59-177-158v-314H79v-66h121v-119l84-10v129h183l-11 66H284v313C274-41 417-45 486-84" id="F"/><g id="c"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#C"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#D"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#E"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#E"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#F"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#C"/></g><path d="M553-344c1 192-75 355-253 355C119 11 46-148 47-343c3-194 67-357 253-357 179 0 255 163 253 356zm-90 0c0-158-26-283-163-283-136 0-163 126-163 284 0 157 28 281 163 281 136 0 163-124 163-282" id="G"/><path d="M56 0l194-278L79-527h100l122 196 123-196h97L350-282 544 0H442L297-226 152 0H56" id="H"/><path d="M63-345c-4-243 159-405 405-339 31 11 61 28 90 51l-49 57c-41-34-89-51-145-51-146 6-210 112-210 282S215-69 363-63c75 0 116-23 160-57l45 56c-51 50-120 75-206 75C163 3 67-136 63-345" id="I"/><path d="M478-115c0 42 12 57 43 67l-21 60c-51-7-83-32-96-75-34 44-90 74-165 74C137 13 68-51 69-151c3-149 154-179 324-169 10-103-29-151-125-148-40 0-86 9-137 27l-23-64c153-63 370-47 370 137v253zM260-52c60-1 107-35 133-75v-135c-121-4-236-1-234 110 0 67 34 100 101 100" id="J"/><path d="M378 11c-91 1-156-55-156-145v-538H60v-67h246v609c-6 82 110 83 175 53l22 61c-33 18-75 27-125 27" id="K"/><g id="d"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#C"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#G"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#H"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#I"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#J"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#D"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,112.00000000000001,0)" xlink:href="#K"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,130.66666666666669,0)" xlink:href="#C"/></g><path d="M497-619H344v550h153V0H103v-69h153v-550H103v-70h394v70" id="L"/><path d="M225-376h270v70H225V0h-87v-689h406l-10 72H225v241" id="M"/><path d="M557-477c3 190-153 233-355 221V0h-86v-689h175c157 0 265 61 266 212zm-93 1c0-139-119-152-262-144v295c147 7 262-3 262-151" id="N"/><g id="e"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#C"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#L"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#I"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#M"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#N"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#C"/></g><path d="M269-700c124 3 208 70 208 192 0 120-55 176-124 256-43 48-105 107-184 180h324L483 0H73v-68c136-135 216-196 291-327 54-94 26-241-99-234-79 4-106 26-148 73l-58-45c50-62 107-98 210-99" id="O"/><path d="M300-700c172 0 225 159 225 355 0 197-53 356-225 356S75-148 75-345c0-196 53-355 225-355zM163-345c0 192 46 288 137 288s137-96 137-288c0-191-46-287-137-287s-137 96-137 287zm137-65c36-1 67 30 66 65 1 36-30 67-66 66-36 1-66-30-65-66-1-35 29-66 65-65" id="P"/><path d="M297-368c-48 1-64 9-107 23h-68v-344h365l-12 68H203v217c35-21 68-29 118-30 120 0 192 89 189 216C507-75 421 8 277 11c-77 0-143-27-200-82l52-51c42 43 91 64 148 64 96 0 146-63 145-163 2-95-40-145-125-147" id="Q"/><g id="f"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#O"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#P"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#O"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#Q"/></g><path d="M517-68V0H120v-68h169v-529l-157 95-37-59 205-128h74v621h143" id="R"/><path d="M152-14l268-605H97v-70h408v65L230 9" id="S"/><path d="M289-699c157 0 225 106 225 266 4 298-130 391-367 454l-20-64c168-49 290-105 298-294-32 45-87 86-163 85-127-5-196-89-196-220 0-142 85-223 223-227zM154-469c-1 93 36 147 122 149 76-2 117-42 151-92 0-138-19-219-138-219-95 0-135 62-135 162" id="T"/><path d="M269-700c119 2 205 61 211 173 2 81-65 148-134 160 87 6 156 71 156 169C502-24 310 52 146-12c-38-15-69-38-94-68l56-46c32 39 87 67 153 68 92 1 153-51 153-140 4-108-79-141-200-131l10-67c98 9 171-29 171-120 0-74-57-117-130-116-71 2-103 25-146 63l-46-51c56-53 121-80 196-80" id="U"/><path d="M528-167h-89V0h-81v-167H72v-62l202-471 70 30-183 435h198l7-195h73v195h89v68" id="V"/><path d="M506-525c0 85-55 118-119 156 78 33 148 86 148 184C535-55 434 11 298 11 163 11 70-54 65-183c0-77 46-137 139-180-67-33-110-68-110-157 0-118 92-180 206-180 116 0 206 57 206 175zM300-634c-76-1-128 40-124 115 4 95 71 98 152 129 56-37 92-55 96-131 0-72-49-114-124-113zm-2 577c116 0 191-109 126-197-39-53-85-54-163-85-71 33-107 85-107 156 0 83 57 126 144 126" id="W"/><path d="M330-448c126 0 194 84 195 216-3 143-78 243-217 243C129 11 79-132 79-325c0-202 66-365 256-375 50 0 96 14 137 41l-33 56c-82-48-185-39-229 45-30 49-45 117-46 202 38-56 83-92 166-92zM308-57c92 0 132-74 131-172 0-101-41-151-122-151-75 1-121 47-152 98 4 133 26 225 143 225" id="X"/><g id="g"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#S"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#Q"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#T"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#U"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#V"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,112.00000000000001,0)" xlink:href="#V"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,130.66666666666669,0)" xlink:href="#W"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,149.33333333333334,0)" xlink:href="#V"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,168,0)" xlink:href="#X"/></g><path d="M211-77c-1-48 40-89 88-88 49-2 89 40 88 88 1 49-39 89-88 88-48 1-89-40-88-88" id="Y"/><g id="h"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#U"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#Y"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#V"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,74.66666666666667,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,93.33333333333334,0)" xlink:href="#Q"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,112.00000000000001,0)" xlink:href="#T"/></g><path d="M184-815h251v72H264V44h171v71H184v-930" id="Z"/><path d="M299-511c45-2 82 37 81 80 1 44-36 84-81 82-44 1-81-38-80-82-1-43 36-82 80-80zm0 345c79 4 94 87 62 160l-82 186h-76l48-198c-59-38-30-152 48-148" id="aa"/><g id="i"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#Z"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#O"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#aa"/></g><g id="j"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#U"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#aa"/></g><g id="k"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#S"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#aa"/></g><path d="M416 115H165V44h171v-787H165v-72h251v930" id="ab"/><g id="l"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#ab"/></g><path d="M337 102h-75v-909h75v909" id="ac"/><g id="m"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#Z"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#ac"/></g><g id="n"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#X"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#aa"/></g><g id="o"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#O"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#W"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#aa"/></g><g id="p"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#V"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#T"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#X"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#aa"/></g><g id="q"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#W"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#R"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,37.333333333333336,0)" xlink:href="#O"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,56,0)" xlink:href="#W"/></g><g id="r"><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,0,0)" xlink:href="#ac"/><use transform="matrix(0.031111111111111114,0,0,0.031111111111111114,18.666666666666668,0)" xlink:href="#ab"/></g></defs></g></svg></p>
@@ -1903,10 +2143,10 @@ els.forEach((el) => {
 <p><span>Example properties</span></p>
 <ul>
 <li>
-<p><span>A value is stack allocated</span></p>
+<p><span>A value doesn't escape the region</span></p>
 </li>
 <li>
-<p><span>A mutable value is read only</span></p>
+<p><span>A value is unique</span></p>
 </li>
 </ul>
 <div center-at-unpause pause></div>
@@ -1919,150 +2159,65 @@ els.forEach((el) => {
 </ul>
 <div center-at-unpause pause></div>
 <ul>
-<li><span>A value is unique</span></li>
-</ul>
-<div center-at-unpause pause></div>
-<ul>
 <li><em><span>and many more ...</span></em></li>
 </ul>
 <div pause></div>
-<p><span>A property may refine how a value can be used: </span><em><span>a stack-allocated value cannot escape its region</span></em></p>
-<div pause></div>
-<p><span>Modes provide safety and control to OxCaml: data-race freedom, control over memory allocation and layout.</span></p>
-<div up-at-unpause pause></div>
-<h1 id="example-1-local-values"><a class="anchor" aria-hidden="true" href="#example-1-local-values"></a><span>Example 1: Local Values</span></h1>
-<div style="display: flex; flex-direction: row; gap: 1em; font-size: 0.75em;">
-<pre><code class="language-ocaml">let gensym =
-  let count = ref 0 in
-  fun () -&gt;
-   count := !count + 1 ; 
-   &quot;gsym_&quot; ^ (Int.to_string !count)
-
-let gensym_many (n : int): string array = 
-  Array.init n (fun _ -&gt; gensym ())
-
-let performance_critical_code () = 
-  let symbols = gensym_many 5 in 
-  (* ... *)
-</code></pre>
-</div>
-<div pause></div>
-<div style="display: grid; place-items: center;">
-  <img src="./assets/symbols-heap-array.svg" />
-</div>
+<p><span>Modes provide safety and control to OxCaml: data-race freedom, safe control over memory allocation and layout.</span></p>
 <div up-at-unpause pause></div>
 <h2 id="the-locality-axis"><a class="anchor" aria-hidden="true" href="#the-locality-axis"></a><span>The Locality Axis</span></h2>
-<p><span>The locality axis has two modes: </span><code>local</code><span> and </span><code>global</code><span>, with a </span><em><span>submoding</span></em><span> relationship of</span></p>
+<p><span>The locality axis has two modes: </span><code>local</code><span> and </span><code>global</code></p>
+<p><span>with a </span><em><span>submoding</span></em><span> relationship of </span><code>global &lt; local</code></p>
 <div style="display: grid; place-items: center;">
-<pre><code class="language-example">global &lt; local
+<pre><code class="language-ocaml">let gensym_2 (): string array @ global = 
+  [| gensym () ; gensym () |]
+
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  (* Type checks because of submoding *)
+  ...
 </code></pre>
 <div role="region"><table>
 <tr>
 <th><span>Mode</span></th>
-<th><span>Assumed allocation location</span></th>
+<th><span>Property</span></th>
 </tr>
 <tr>
 <td><code>local</code></td>
-<td><span>stack</span></td>
+<td><span>Value doesn't escape the region</span></td>
 </tr>
 <tr>
 <td><code>global</code></td>
-<td><span>heap</span></td>
+<td></td>
 </tr>
 </table></div></div>
-<pre><code class="language-ocaml">let buf_zeros @ local = Array.create ~len:10 0 in
-  ...
-</code></pre>
-<p><span>The </span><code>@ local</code><span> is a </span><em><span>mode annotation,</span></em><span> which says that the value </span><code>buf_zeros</code><span> is at the local mode</span></p>
+<p><span>The </span><code>@ local</code><span> is a </span><em><span>mode annotation</span></em></p>
 <div pause></div>
-<p><span>Values at the global mode, a normal OCaml value, is allocated on the GC-managed heap</span></p>
-<p><span>Values at the local mode can </span><em><span>safely</span></em><span> be allocated on the stack</span></p>
-<div center-at-unpause pause></div>
-<p class="remark"><span>Local values </span><em><span>cannot</span></em><span> escape their region, if they did, it would lead to a </span><strong><span>dangling pointer</span></strong></p>
-<div pause></div>
-<div class="unsafe" style="display:grid; grid-template-columns:1fr 1fr; gap: 0.5em;">
-<pre><code class="language-ocaml">let small_buffer () =
-  let buf_zeros @ local = 
-    Array.create ~len:10 0 in
-  buf_zeros
-</code></pre>
-<pre><code class="language-rust">fn small_buffer() -&gt; &amp;[i32] {
-  let mut arena = Arena::new();
-  let buf_zeros = arena.alloc([10; 0]);
-  return buf_zeros;
-}
-</code></pre>
-</div>
-<div up-at-unpause pause></div>
-<h3 id="what-could-go-wrong"><a class="anchor" aria-hidden="true" href="#what-could-go-wrong"></a><span>What could go wrong?</span></h3>
-<pre><code class="language-ocaml">let () = 
-  let buf_zeros = small_buffer () in
-  ...
-</code></pre>
-<div pause></div>
-<div style="display: grid; place-items: center; margin-bottom: 0.5em;">
-  <img src="./assets/buf_zeros-local-alloc.svg" />
-</div>
-<div center-at-unpause pause></div>
-<div style="display: grid; place-items: center;">
-  <img src="./assets/buf_zeros-dangling-pointer.svg" />
-</div>
-<div center-at-unpause pause></div>
-<p><strong><span>This code doesn't compile,</span></strong><span> because modes provide safety</span></p>
-<pre><code class="language-ocaml">let small_buffer () =
-  let buf_zeros @ local = Array.create ~len:10 0 in
-  buf_zeros
-</code></pre>
-<pre><code>       buf_zeros
-       ^^^^^^^^^
-Error: This value escapes its region.
-  Hint: Cannot return a local value without an &quot;exclave_&quot; annotation.
-</code></pre>
-<div center-at-unpause pause></div>
-<div class="remark" title="Mode Crossing">
-<p><span>“</span><code>int</code><span> crosses locality” is something you might hear/read.</span></p>
-<p><span>Meaning, </span><code>int @ local</code><span> and </span><code>int @ global</code><span> aren't meaningfully different</span></p>
-<p><span>Recall that </span><code>global &lt; local</code><span>, but when a type </span><em><span>mode crosses,</span></em><span> </span><code>local &lt; global</code><span> holds true as well</span></p>
-</div>
-<div up-at-unpause pause></div>
-<h3 id="zero-gc-allocation-requires-cooperation"><a class="anchor" aria-hidden="true" href="#zero-gc-allocation-requires-cooperation"></a><span>Zero GC allocation requires cooperation</span></h3>
-<p><span>If you want truly zero GC allocation code, all your callees need to be zero alloc</span></p>
-<pre><code class="language-ocaml">val init : int -&gt; f:(int -&gt; 'a) @ local -&gt; 'a array @ global
-</code></pre>
-<p><span>We have to use a special zero-alloc-version from </span><code>Base</code></p>
-<div pause></div>
-<pre><code class="language-ocaml">let[@zero_alloc] small_buffer () = exclave_
-  (Array.create [@alloc stack]) ~len:10 0
-</code></pre>
-<p><span>The </span><code>exclave_</code><span> keyword indicates that local values are allocated in the </span><em><span>caller's local region</span></em></p>
-<div pause></div>
-<pre><code class="language-ocaml">let () = 
-  let buf_zeros @ local = small_buffer () in
-  ...
-</code></pre>
-<p><code>buf_zeros</code><span> is now </span><em><span>actually</span></em><span> stack allocated</span></p>
-<p><span>We check this with the extension </span><a href="https://oxcaml.org/documentation/miscellaneous-extensions/zero_alloc_check/"><code>[@zero_alloc]</code></a></p>
+<p><span>Every mode axis has a default value for backwards compatibility with OCaml</span></p>
+<p><span>The default for locality is the </span><code>global</code><span> mode</span></p>
 <div up-at-unpause pause></div>
 <h1 id="example-2-safe-parallelism"><a class="anchor" aria-hidden="true" href="#example-2-safe-parallelism"></a><span>Example 2: Safe Parallelism</span></h1>
-<p><span>OCaml 5 introduced parallel programming with a multicore-aware runtime and effects...</span></p>
+<p><span>OCaml 5 introduced parallel programming with a multicore-aware runtime and effects</span></p>
+<div pause></div>
 <p><strong><span>it also unleashed chaos:</span></strong><span> race conditions, nondeterministic bugs, and hard-to-reason-about code.</span></p>
 <div pause></div>
 <p><span>OxCaml introduces two mode axes for data-race freedom: contention and portability</span></p>
 <div up-at-unpause pause></div>
 <h2 id="ocaml-5-introduced-a-new-class-of-error-data-races"><a class="anchor" aria-hidden="true" href="#ocaml-5-introduced-a-new-class-of-error-data-races"></a><span>OCaml 5 introduced a new class of error: Data Races</span></h2>
-<pre><code class="language-ocaml">module Par_array = Parallel.Arrays.Array
+<pre id="unsafe-gensym-n"><code class="language-ocaml">module Par_array = Parallel.Arrays.Array
 
-let gensym = 
-  let count = ref 0 in 
-  fun () -&gt; 
+let gensym =
+  let count = ref 0 in
+  fun () -&gt;
     count := !count + 1 ;
-    Printf.sprintf &quot;gsym_%d&quot; !count
+    &quot;gsym_&quot; ^ (Int.to_string !count)
 
-let gen_many par n = 
-  Par_array.init par n (fun _ -&gt; gensym ())
+let gensym_n par n =
+  Par_array.init par n ~f:(fun _ -&gt; gensym ())
 </code></pre>
-<p><span>What could happen if </span><code>gen_many</code><span> is called with </span>\(n \geq 2\)<span>?</span></p>
-<div pause></div>
+<p><span>What could happen if </span><code>gensym_n</code><span> is called with </span>\(n \geq 2\)<span>?</span></p>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#unsafe-gensym-n");
+slip.setClass(el, "does-not-compile", true)</script>
 <pre><code class="language-text">Domain 1                    Domain 2
 --------                    --------
 !count (0)                  
@@ -2075,26 +2230,15 @@ count := 0 + 1
 <p><span>Resulting array: </span><code>[| &quot;gsym_1&quot;; &quot;gsym_1&quot; |]</code><span> Duplicate symbols? Unexpected!</span></p>
 <div center-at-unpause pause></div>
 <p><span>It is </span><em><span>unsafe</span></em><span> to run </span><code>gensym</code><span> on multiple domains, we want to statically prevent his from happening</span></p>
-<!-- {pause center} -->
-<!---->
-<!-- ### Sequential Consistency -->
-<!---->
-<!-- {.definition #seq-consistency title="Sequential Consistency"} -->
-<!-- A program can be understood by considering all possible **interleavings** -->
-<!-- (but not reorderings) of each domain's operations. -->
-<!---->
-<!-- - Without data-race freedom, there is no sequential consistency. -->
-<!-- - With data-race freedom, sequential consistency can be guaranteed. -->
-<!---->
-<!-- Data-race freedom gives programmers the power to reason intuitively about our code, no matter how buggy it might get. -->
-<!---->
+<div pause></div>
+<p><span>The code does not compile in OxCaml, but does in OCaml</span></p>
 <div up-at-unpause pause></div>
 <h3 id="data-races-require-4-ingredients"><a class="anchor" aria-hidden="true" href="#data-races-require-4-ingredients"></a><span>Data races require 4 ingredients</span></h3>
 <ol>
-<li><strong><span>Parallel execution</span></strong><span> - Code running in different parallel domains</span></li>
+<li><strong><span>Parallel execution</span></strong><span> - Code running in different parallel domains (read, threads)</span></li>
 <li><strong><span>Shared memory</span></strong><span> - A location accessible by multiple domains</span></li>
 <li><strong><span>At least one write</span></strong><span> - One domain is modifying the data</span></li>
-<li><strong><span>No synchronization</span></strong><span> - The domains are not using </span><code>Atomic.t</code><span> or similar</span></li>
+<li><strong><span>No synchronization</span></strong><span> - No atomics, etc</span></li>
 </ol>
 <div pause></div>
 <pre><code class="language-ocaml">let gensym = 
@@ -2107,112 +2251,140 @@ count := 0 + 1
 
 let gen_many par n = 
   (* (1) parallel execution, when n &gt; 1 *)
-  Par_array.init par n (fun _ -&gt; gensym ())
+  Par_array.init par n ~f:(fun _ -&gt; gensym ())
 </code></pre>
+<div center-at-unpause pause></div>
+<p><span>The lambda </span><code>(fun _ -&gt; gensym ())</code><span> must be safe to share across domains</span></p>
 <div pause></div>
-<p><span>Removing any one of these ingredients results in race-free code.</span></p>
+<p><span>The function </span><code>gensym</code><span> must also be safe to share across domains</span></p>
+<div pause></div>
+<p><code>gensym</code><span> closes over a non-synchronized mutable reference, and </span><em><span>reads</span></em><span> and </span><em><span>writes</span></em><span> to it</span></p>
+<div pause></div>
+<p><span>Therefore, </span><code>gensym</code><span> is not safe to share across domains</span></p>
+<p><code>(fun _ -&gt; gensym ())</code><span> is not safe to share across domains</span></p>
 <div up-at-unpause pause></div>
-<h2 id="modes-for-parallelism"><a class="anchor" aria-hidden="true" href="#modes-for-parallelism"></a><span>Modes for Parallelism</span></h2>
+<h2 id="modes-for-safe-parallelism"><a class="anchor" aria-hidden="true" href="#modes-for-safe-parallelism"></a><span>Modes for Safe Parallelism</span></h2>
 <p><span>There are two key mode axes for expressing parallelism constraints</span></p>
 <div pause></div>
-<h3 id="contention what-access-do-i-have-to-this-shared-memory"><a class="anchor" aria-hidden="true" href="#contention what-access-do-i-have-to-this-shared-memory"></a><span>Contention: What access do I have to this shared memory?</span></h3>
-<div style="display: grid; place-items: center; gap: 2em;">
-<p><code>uncontended &lt; shared &lt; contended</code></p>
-<div role="region"><table>
-<tr>
-<th><span>Mode</span></th>
-<th><span>Access to mutable fields</span></th>
-</tr>
-<tr>
-<td><code>uncontended</code></td>
-<td><span>RW</span></td>
-</tr>
-<tr>
-<td><code>shared</code></td>
-<td><span>R</span></td>
-</tr>
-<tr>
-<td><code>contended</code></td>
-<td></td>
-</tr>
-</table></div></div>
-<div pause></div>
-<div class="unsafe">
-<pre><code class="language-ocaml">let gensym = 
-  let count @ uncontended = ref 0 in
-  fun () -&gt; 
-    count := !count + 1 ;
-    &quot;gsym_&quot; ^ (Int.to_string !count)
-</code></pre>
-</div>
-<div center-at-unpause pause></div>
-<h3 id="portability is-this-value-safe-to-share-across-domains"><a class="anchor" aria-hidden="true" href="#portability is-this-value-safe-to-share-across-domains"></a><span>Portability: Is this value safe to share across domains?</span></h3>
-<div style="display: grid; place-items: center; gap: 2em;">
+<div id="contention-portability-container">
+<div class="port-area">
+<h3 id="portability is-this-value-function-safe-to-share-across-domains"><a class="anchor" aria-hidden="true" href="#portability is-this-value-function-safe-to-share-across-domains"></a><span>Portability</span><span class="subtitle"><span>: Is this value (function) safe to share across domains?</span></span></h3>
+<div style="display: grid; place-items: center;">
 <p><code>portable &lt; nonportable</code></p>
 <div role="region"><table>
 <tr>
 <th><span>Mode</span></th>
-<th><span>Safe to access from domain</span></th>
-</tr>
-<tr>
-<td><code>portable</code></td>
-<td><span>any</span></td>
+<th><span>Property</span></th>
 </tr>
 <tr>
 <td><code>nonportable</code></td>
-<td><span>creator</span></td>
+<td><span>Cannot be shared across domains</span></td>
+</tr>
+<tr>
+<td><code>portable</code></td>
+<td></td>
 </tr>
 </table></div></div>
-<div center-at-unpause pause></div>
-<p class="theorem"><span>Portable functions </span><strong><span>cannot</span></strong><span> close over uncontended values</span></p>
-<div center-at-unpause pause></div>
-<div class="unsafe">
-<pre><code class="language-ocaml">let gensym @ portable = 
-  let count @ uncontended = ref 0 in
+<div id="gensym-par-array-aside" pause-block>
+<pre class="does-not-compile"><code class="language-ocaml">let gensym @ portable = 
+  let count = ref 0 in
   fun () -&gt; 
     count := !count + 1 ;
     &quot;gsym_&quot; ^ (Int.to_string !count)
 
 let gen_many par n = 
-  Par_array.init par n (fun _ -&gt; gensym ())
+  Par_array.init par n ~f:(fun _ -&gt; gensym ())
+</code></pre>
+<pre pause><code class="language-ocaml">val Par_array.init : Parallel_kernel.t -&gt; int 
+  -&gt; f:(int -&gt; 'a @ portable) @ portable (* &lt;-- *)
+  -&gt; t
 </code></pre>
 </div>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#gensym-par-array-aside")
+slip.setStyle(el, "display", "none")</script>
+</div>
+<div class="cont-area">
+<h3 id="contention what-access-do-i-have-to-this-shared-memory"><a class="anchor" aria-hidden="true" href="#contention what-access-do-i-have-to-this-shared-memory"></a><span>Contention</span><span class="subtitle"><span>: What access do I have to this shared memory?</span></span></h3>
+<div style="display: grid; place-items: center;">
+<p><code>uncontended &lt; shared &lt; contended</code></p>
+<div role="region"><table>
+<tr>
+<th><span>Mode</span></th>
+<th><span>Property</span></th>
+</tr>
+<tr>
+<td><code>contended</code></td>
+<td><span>Cannot </span><em><span>read</span></em><span> or </span><em><span>write</span></em></td>
+</tr>
+<tr>
+<td><code>shared</code></td>
+<td><span>Cannot </span><em><span>write</span></em></td>
+</tr>
+<tr>
+<td><code>uncontended</code></td>
+<td></td>
+</tr>
+</table></div></div>
+</div>
+</div>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#contention-portability-container")
+slip.setClass(el, "cont-port-container", true)</script>
 <div pause></div>
-<p><code>gensym</code><span> is not portable and this code fails to type check</span></p>
+<p class="theorem"><span>References captured by portable functions are </span><code>contended</code></p>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; align-items: start;">
+<pre id="gensym-par-array-code"><code class="language-ocaml">let gensym @ portable = 
+  let count = ref 0 in
+  fun () -&gt; 
+    count := !count + 1 ;
+    &quot;gsym_&quot; ^ (Int.to_string !count)
+</code></pre>
+<script type=slip-script exec-at-unpause pause>
+let el = document.querySelector("#gensym-par-array-code")
+slip.setClass(el, "does-not-compile", true)</script>
+<pre><code>  count := !count + 1 ;
+  ^^^^^
+Error: This value is contended but 
+expected to be uncontended.
+</code></pre>
+</div>
 <div up-at-unpause pause></div>
 <h2 id="safely-working-with-mutable-state"><a class="anchor" aria-hidden="true" href="#safely-working-with-mutable-state"></a><span>Safely Working with Mutable State</span></h2>
-<p><span>Sometimes we actually need shared mutable state, OxCaml provides three components:</span></p>
+<p><span>Sometimes we actually need shared mutable state, OxCaml provides two types:</span></p>
 <ol>
-<li><span>Use </span><strong><span>atomics</span></strong><span> for shared counters</span></li>
-<li><span>Use </span><strong><span>capsules</span></strong><span> for deeply mutable structures</span></li>
-<li><span>Use </span><strong><span>parallel arrays</span></strong><span> for array-based algorithms</span></li>
+<li><strong><span>Atomics</span></strong><span> for simple operations</span></li>
+<li><strong><span>Capsules</span></strong><span> atomizing complex operations</span></li>
 </ol>
 <div pause></div>
 <h3 id="atomics"><a class="anchor" aria-hidden="true" href="#atomics"></a><span>Atomics</span></h3>
 <pre><code class="language-ocaml">let gensym @ portable = 
-  let count @ contended = Atomic.make 0 in 
+  let count = Atomic.make 0 in 
   fun () -&gt; 
     let n = Atomic.fetch_and_add count 1 in 
     &quot;gsym_&quot; ^ (Int.to_string n)
 </code></pre>
 <div pause></div>
-<p><code>Atomic.t</code><span> crosses portability and contention</span></p>
+<p><span>Because </span><code>Atomic.t</code><span> provides synchronization, it crosses portability and contention</span></p>
 <div pause></div>
+<p><span>What if </span><code>fetch_and_add</code><span> didn't exist?</span></p>
 <pre><code class="language-ocaml">let gensym @ portable =
-  let count @ contended = Atomic.make 0 in
+  let count = Atomic.make 0 in
   fun () -&gt;
     Atomic.incr count ;
     let n = Atomic.get count in
     &quot;gsym_&quot; ^ (Int.to_string n)
 </code></pre>
 <div center-at-unpause pause></div>
-<p><code>Atomic.t</code><span> is more expensive than regular operations and </span><strong><span>only prevents data races, not race conditions!</span></strong></p>
+<p><span>Atomics prevent data races, </span><em><span>but not race conditions.</span></em><span> The read and write should be a single atomic operation</span></p>
 <div up-at-unpause pause></div>
 <h3 id="capsules"><a class="anchor" aria-hidden="true" href="#capsules"></a><span>Capsules</span></h3>
 <p><span>If the </span><code>Atomic.fetch_and_add</code><span> function didn't exist, could we still write </span><code>gensym</code><span>?</span></p>
 <div pause></div>
 <p id="capsules" class="definition" title="Capsules"><span>Associate mutable state with locks, ensuring exclusive access. Capsules use the type system to track which values have access.</span></p>
 <div id="capsules" pause></div>
+<p><span>⚠️ </span><strong><span>A simpler interface is coming, the following may hurt your eyes</span></strong><span> ⚠️</span></p>
+<div pause></div>
 <pre><code class="language-ocaml">let gensym = 
   (* 1. Create encapsulated data *)
   let counter = Capsule.Data.create (fun () -&gt; ref 0) in
@@ -2222,130 +2394,54 @@ let gen_many par n =
   let mutex = Capsule.Mutex.create key in (* 3. Create mutex from key *)
 
   (* 4. Access with lock *)
-  let increment () =
+  let fetch_and_incr () =
     Capsule.Mutex.with_lock mutex ~f:(fun password -&gt;
       Capsule.Data.extract counter ~password ~f:(fun c -&gt;
         c := !c + 1 ; !c))
   in
-  fun () -&gt; &quot;gsym_&quot; ^ (Int.to_string (increment ()))
-
+  fun () -&gt; &quot;gsym_&quot; ^ (Int.to_string (fetch_and_incr ()))
 </code></pre>
 <div up-at-unpause pause></div>
-<h1 id="example-3-putting-it-together-quicksort"><a class="anchor" aria-hidden="true" href="#example-3-putting-it-together-quicksort"></a><span>Example 3: Putting it Together, Quicksort</span></h1>
-<p><span>Your favorite sorting algorithm is trivially parallelizable</span></p>
-<pre><code class="language-ocaml">let swap : 'a Slice.t @ local -&gt; i:int -&gt; j:int -&gt; unit
-  = ...
-
-let partition : int Slice.t @ local -&gt; int
-  = ...
-
-let rec quicksort slice =
-  if Slice.length slice &gt; 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
-
-    let left = Slice.sub slice ~i:0 ~j:pivot in
-    let right = Slice.sub slice ~i:pivot ~j:length in
-
-    quicksort left;
-    quicksort right
-  )
-</code></pre>
-<div center-at-unpause pause></div>
-<p><span>A few things</span></p>
+<h1 id="activity"><a class="anchor" aria-hidden="true" href="#activity"></a><span>Activity!</span></h1>
+<p><span>Visit</span></p>
+<div style="display: grid; place-items: center;">
+<p><a href=""><span>TODO</span></a></p>
+</div>
+<p><span>and complete a short activity on OxCaml modes! This will help with the live programming in the next half</span></p>
+<div up-at-unpause pause></div>
+<h1 id="oxcaml-summary"><a class="anchor" aria-hidden="true" href="#oxcaml-summary"></a><span>OxCaml Summary </span><img style="float: right;" src="./assets/oxcaml-normal.svg" width="200px" height="200px" /></h1>
+<div class="remark">
+<p><strong><span>Session resumes at 1600:</span></strong><span> </span><em><span>program in OxCaml and ask the experts anything!</span></em><br/></p>
+<p><strong><span>OxCaml “office hours” daily:</span></strong><span> XXXX-XXXX @ the Jane Street booth</span><br/>
+<em><span>Can't make it?</span></em><span> Email me at </span><a href="mailto:gavinleroy@brown.edu"><code>gavinleroy@brown.edu</code></a></p>
+</div>
+<p><span>OxCaml provides </span><em><span>safe control</span></em><span> over performance-critical aspects of program behavior</span></p>
 <ul>
 <li>
-<p><span>A slice is a </span><code>local</code><span> view of a portion of an array</span></p>
+<p><span>New keywords (e.g., </span><code>stack_</code><span> and </span><code>exclave_</code><span>) provide control over memory</span></p>
 </li>
 <li>
-<p><span>A slice </span><em><span>borrows</span></em><span> a segment of the array, only allowing access to a contiguous subset of its indices</span></p>
+<p><span>Modes provide the </span><em><span>safety:</span></em><span> for memory and parallelism</span></p>
 </li>
 </ul>
-<div up-at-unpause pause></div>
-<pre><code class="language-ocaml">let rec quicksort parallel slice =
-  if Slice.length slice &gt; 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
-
-    let left = Slice.sub slice ~i:0 ~j:pivot in
-    let right = Slice.sub slice ~i:pivot ~j:length in
-
-    let (), () = Parallel.fork_join2 parallel
-      (fun parallel -&gt; quicksort parallel left)
-      (fun parallel -&gt; quicksort parallel right)
-    in ()
-  )
+<div style="display: flex; flex-direction: row; gap: 0.25em; flex-wrap: wrap; font-size: 1em;">
+<pre><code class="language-ocaml">let gensym_n par n =
+  Par_array.init par n 
+    ~f:(fun _ -&gt; gensym ())
+                 ^^^^^^
+Error: The value gensym is nonportable, 
+  so cannot be used inside a function 
+  that is portable.
 </code></pre>
-<p><span>Is this code safe (i.e., no data races)? Does it type check?</span></p>
-<pre><code class="language-ocaml">val sub : i:int -&gt; j:int 
-  -&gt; 'a Slice.t @ local uncontended 
-  -&gt; 'a t @ local uncontended
+<pre><code class="language-ocaml">let[@zero_alloc] gensym_n n = exclave_ 
+  (Array.init[@alloc stack]) 
+    n ~f:(fun _ -&gt; gensym ())
 
-val fork_join2 :  Parallel.t @ local
-  -&gt; (Parallel.t @ local -&gt; 'a) @ local
-  -&gt; (Parallel.t @ local -&gt; 'b) @ portable
-  -&gt; 'a * 'b
+let perf_critical () = 
+  let symbols @ local = gensym_2 () in
+  ...
 </code></pre>
-<div up-at-unpause pause></div>
-<pre><code class="language-ocaml">let rec quicksort parallel (slice @ uncontended) =
-  if Slice.length slice &gt; 1 then (
-    let pivot = partition slice in
-    let length = Slice.length slice in
-
-    let left @ uncontended = Slice.sub slice ~i:0 ~j:pivot in
-    let right @ uncontended = Slice.sub slice ~i:pivot ~j:length in
-
-    let (), () = Parallel.fork_join2 parallel
-      (fun parallel -&gt; quicksort parallel left) (* @ portable *)
-      (fun parallel -&gt; quicksort parallel right) (* @ portable *)
-    in ()
-  )
-</code></pre>
-<div pause></div>
-<p class="remark"><span>Portable functions cannot close over uncontended references!</span></p>
-<div center-at-unpause pause></div>
-<pre><code class="language-ocaml">let rec quicksort parallel slice =
-  if Slice.length slice &gt; 1 then (
-    let pivot = partition slice in
-
-    let (), () = Slice.fork_join2 parallel slice ~pivot
-      (fun parallel left -&gt; quicksort parallel left) 
-      (fun parallel right -&gt; quicksort parallel right)
-    in ()
-  )
-</code></pre>
-<div center-at-unpause pause></div>
-<p><span>Sorting an array of 4,000,000 elements takes</span></p>
-<div role="region"><table>
-<tr>
-<th><span># Domains</span></th>
-<th><span>Execution (s)</span></th>
-</tr>
-<tr>
-<td><span>1</span></td>
-<td><span>10.99</span></td>
-</tr>
-<tr>
-<td><span>2</span></td>
-<td><span>5.96</span></td>
-</tr>
-<tr>
-<td><span>4</span></td>
-<td><span>3.06</span></td>
-</tr>
-<tr>
-<td><span>8</span></td>
-<td><span>1.83</span></td>
-</tr>
-</table></div><div up-at-unpause pause></div>
-<h1 id="activity-2"><a class="anchor" aria-hidden="true" href="#activity-2"></a><span>Activity 2</span></h1>
-<p><span>TODO</span></p>
-<div up-at-unpause pause></div>
-<h2 id="to-be-continued-"><a class="anchor" aria-hidden="true" href="#to-be-continued-"></a><span>To be continued ...</span></h2>
-<p><span>TODO</span></p>
-<div up-at-unpause pause></div>
-<h1 id="summary"><a class="anchor" aria-hidden="true" href="#summary"></a><span>Summary</span></h1>
-<p><span>TODO</span></p>
+</div>
 
             </div>
           </div>

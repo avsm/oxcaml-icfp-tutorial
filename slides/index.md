@@ -88,7 +88,7 @@ What do we need to know/do to avoid this?
 
 {pause}
 
-2. Update the code to allocated the array on the stack
+2. Update the code to allocate the array on the stack
 
 {pause up}
 
@@ -671,6 +671,42 @@ expected to be uncontended.
 
 {pause up}
 
+### Mode Crossing: When Modes and Types Work Together
+
+```ocaml
+let gensym_n n = 
+  List.init n ~f:(fun _ -> genysm ())
+
+let print_hd (ls @ contended) = 
+  let gsym :: _ = ls in
+  Stdio.print_endline gsym
+
+let foo par = 
+  let ls = gensym_n 10 in
+  let (), () = 
+    Parallel.fork_join2 par 
+      (fun () -> print_hd ls)
+      (fun () -> print_hd ls)
+  in ()
+```
+
+`ls` is contended because multiple domains hold a reference to it. One domain may have uncontended access to `ls`, *a potential write!*
+
+{pause}
+
+... wait, `string list` is an immutable type, nobody can write to it ...
+
+{pause}
+
+We say that values of type `string list` *mode cross* along the contention axis
+
+{pause}
+
+{.theorem}
+If a type upholds the properties of a mode axis, values of that type mode cross
+
+{pause up}
+
 ## Safely Working with Mutable State
 
 Sometimes we actually need shared mutable state, OxCaml provides two types:
@@ -709,7 +745,7 @@ let gensym @ portable =
 
 {pause center}
 
-Atomics prevent data races, *but not race conditions.* The read and write should be a single atomic operation
+Atomics prevent data races, *but not race conditions.* What we need is for the read and write to be a single atomic operation
 
 {pause up}
 

@@ -1955,7 +1955,7 @@ slip.setClass(el, "correct", true)</script>
 </ol>
 <div pause></div>
 <ol start="2">
-<li><span>Update the code to allocated the array on the stack</span></li>
+<li><span>Update the code to allocate the array on the stack</span></li>
 </ol>
 <div up-at-unpause pause></div>
 <h2 id="oxcaml-escape-analysis"><a class="anchor" aria-hidden="true" href="#oxcaml-escape-analysis"></a><span>OxCaml Escape Analysis</span></h2>
@@ -2350,6 +2350,30 @@ expected to be uncontended.
 </code></pre>
 </div>
 <div up-at-unpause pause></div>
+<h3 id="mode-crossing-when-modes-and-types-work-together"><a class="anchor" aria-hidden="true" href="#mode-crossing-when-modes-and-types-work-together"></a><span>Mode Crossing: When Modes and Types Work Together</span></h3>
+<pre><code class="language-ocaml">let gensym_n n = 
+  List.init n ~f:(fun _ -&gt; genysm ())
+
+let print_hd (ls @ contended) = 
+  let gsym :: _ = ls in
+  Stdio.print_endline gsym
+
+let foo par = 
+  let ls = gensym_n 10 in
+  let (), () = 
+    Parallel.fork_join2 par 
+      (fun () -&gt; print_hd ls)
+      (fun () -&gt; print_hd ls)
+  in ()
+</code></pre>
+<p><code>ls</code><span> is contended because multiple domains hold a reference to it. One domain may have uncontended access to </span><code>ls</code><span>, </span><em><span>a potential write!</span></em></p>
+<div pause></div>
+<p><span>... wait, </span><code>string list</code><span> is an immutable type, nobody can write to it ...</span></p>
+<div pause></div>
+<p><span>We say that values of type </span><code>string list</code><span> </span><em><span>mode cross</span></em><span> along the contention axis</span></p>
+<div pause></div>
+<p class="theorem"><span>If a type upholds the properties of a mode axis, values of that type mode cross</span></p>
+<div up-at-unpause pause></div>
 <h2 id="safely-working-with-mutable-state"><a class="anchor" aria-hidden="true" href="#safely-working-with-mutable-state"></a><span>Safely Working with Mutable State</span></h2>
 <p><span>Sometimes we actually need shared mutable state, OxCaml provides two types:</span></p>
 <ol>
@@ -2376,7 +2400,7 @@ expected to be uncontended.
     &quot;gsym_&quot; ^ (Int.to_string n)
 </code></pre>
 <div center-at-unpause pause></div>
-<p><span>Atomics prevent data races, </span><em><span>but not race conditions.</span></em><span> The read and write should be a single atomic operation</span></p>
+<p><span>Atomics prevent data races, </span><em><span>but not race conditions.</span></em><span> What we need is for the read and write to be a single atomic operation</span></p>
 <div up-at-unpause pause></div>
 <h3 id="capsules"><a class="anchor" aria-hidden="true" href="#capsules"></a><span>Capsules</span></h3>
 <p><span>If the </span><code>Atomic.fetch_and_add</code><span> function didn't exist, could we still write </span><code>gensym</code><span>?</span></p>

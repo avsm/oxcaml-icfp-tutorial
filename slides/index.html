@@ -320,6 +320,10 @@ body {
   font-size: 1em;
 }
 
+pre {
+  margin: 0.5em 0 0.5em 0;
+}
+
 pre, code {
   font-family: "Fira Mono", monospace;
   font-size: 0.85em;
@@ -368,27 +372,14 @@ table td, th {
   }
 
   code&, code {
-    border: 3px solid #FF43A4;
+    border: 2px solid #FF43A4;
 
-    &::after {
+    &.language-ocaml::after {
       position: absolute; top: -2em; right: 0;
       content: url(assets/oxcaml.svg);
       height: 100px;
       width: 100px;
     }
-    /*
-    &.language-rust::after {
-      content: url(assets/ferris.svg);
-      height: 100px;
-      width: 100px;
-    }
-
-    &.language-ocaml::after {
-      content: url(assets/oxcaml.svg);
-      height: 100px;
-      width: 100px;
-    }
-    */
   }
 }
 
@@ -638,11 +629,11 @@ h1:not(#slipshow-toc h1) {
   border: 1px solid #cccc00;
 }
 .corollary:before {
-  content: "Corollary.";
+  content: "Rule.";
   background-color: #cccc00;
 }
 .corollary[title]:before {
-  content: "Corollary: " attr(title) "";
+  content: "Rule: " attr(title) "";
 }
 </style>
     
@@ -1891,21 +1882,12 @@ relevance:0},{begin:/->/}]})})();hljs.registerLanguage("ocaml",e)})();</script>
           <div class="slip">
             <div class="slip-body">
               <h1 id="oxcaml-safe-control-over-program-behavior"><a class="anchor" aria-hidden="true" href="#oxcaml-safe-control-over-program-behavior"></a><span>OxCaml: </span><em><span>safe control over program behavior</span></em></h1>
-<h2 id="icfp-tutorial"><a class="anchor" aria-hidden="true" href="#icfp-tutorial"></a><span>ICFP Tutorial</span></h2>
+<h2 id="icfp25-tutorial"><a class="anchor" aria-hidden="true" href="#icfp25-tutorial"></a><span>ICFP’25 Tutorial</span></h2>
 <p><span>Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino</span></p>
 <p><span>Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek</span></p>
-<!-- {pause up} -->
-<!---->
-<!-- ## Types Provide Safety -->
-<!---->
-<!-- ```ocaml -->
-<!-- "hello" + 42 -->
-<!--  ^^^^^ -->
-<!-- Error: expression has type   -->
-<!--  string  -->
-<!-- but an expression was expected of type   -->
-<!--  int -->
-<!-- ``` -->
+<div style="margin-top: 6em;">
+<p><span>Slides available online: </span><a href="https://gavinleroy.com/oxcaml-tutorial-icfp25/"><code>gavinleroy.com/oxcaml-tutorial-icfp25</code></a></p>
+</div>
 <div up-at-unpause pause></div>
 <h2 id="oxcaml-provides"><a class="anchor" aria-hidden="true" href="#oxcaml-provides"></a><span>OxCaml provides</span></h2>
 <p><em><span>Safe control</span></em><span> over performance-critical aspects of program behavior, </span><em><span>in OCaml</span></em></p>
@@ -1972,7 +1954,7 @@ slip.setClass(el, "correct", true)</script>
 <div pause></div>
 <p><span>Every value is either </span><code>@ local</code><span> or </span><code>@ global</code><span>, the latter is the </span><em><span>OCaml default</span></em></p>
 <div pause></div>
-<p><span>A value is </span><code>@ local</code><span> if it doesn't escape the current region</span></p>
+<p><span>A value is </span><code>@ local</code><span> if it doesn’t escape the current region</span></p>
 <div pause></div>
 <p><span>A value </span><code>@ local</code><span> </span><em><span>could be locally allocated</span></em></p>
 <div up-at-unpause pause></div>
@@ -1981,8 +1963,8 @@ slip.setClass(el, "correct", true)</script>
   let symbols @ local = [| gensym () ; gensym () |] in
   ...
 </code></pre>
-<p><span>We assert that </span><code>symbols</code><span> is local and doesn't escape the current region</span></p>
-<p><em><span>How can we ensure that it's locally allocated?</span></em></p>
+<p><span>We assert that </span><code>symbols</code><span> is local and doesn’t escape the current region</span></p>
+<p><em><span>How can we ensure that it’s locally allocated?</span></em></p>
 <div pause></div>
 <p><span>OxCaml provides new keywords for allocation: </span><code>stack_</code><span> and </span><code>exclave_</code></p>
 <div pause></div>
@@ -1993,6 +1975,23 @@ slip.setClass(el, "correct", true)</script>
 </code></pre>
 <div pause></div>
 <p><span>This turns the allocation site for </span><code>[| |]</code><span> into a </span><em><span>local allocation</span></em></p>
+<div center-at-unpause pause></div>
+<h4 id="the-local-region"><a class="anchor" aria-hidden="true" href="#the-local-region"></a><span>The Local Region</span></h4>
+<p><span>The local region is still dynamically sized, but not GC managed. It's cleaned up on function exit</span></p>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+<pre><code class="language-ocaml">let perf_critical () = 
+  let symbols  = stack_ 
+    [| gensym () ; gensym () |] in
+  ...
+</code></pre>
+<pre><code class="language-rust">fn perf_critical() {
+  let arena = Arena::new();
+  let symbols = 
+    arena.alloc([gensym(), gensym()]);
+  ...
+}
+</code></pre>
+</div>
 <div center-at-unpause pause></div>
 <div style="display: grid; grid-template-rows: 1fr 1fr;">
 <div id="memory-layout-local-correct">
@@ -2041,34 +2040,29 @@ let perf_critical () =
 <script type=slip-script exec-at-unpause pause>
 let el = document.querySelector("#stack-allocation-escapes")
 slip.setClass(el, "does-not-compile", true)</script>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; position: relative;">
 <pre><code>   |   stack_ [| gensym () ; gensym () |]
        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This value escapes its region.
 </code></pre>
-<div center-at-unpause pause></div>
-<p><code>stack_</code><span> allocates the array local to </span><code>gensym_2</code><span>, but we actually want it to be allocated local to </span><code>perf_critical</code><span>, </span><em><span>the caller.</span></em></p>
-<div center-at-unpause pause></div>
-<h4 id="the-local-region"><a class="anchor" aria-hidden="true" href="#the-local-region"></a><span>The Local Region</span></h4>
-<div class="does-not-compile" style="display:grid; grid-template-columns:1fr 1fr; gap: 1em;">
-<pre><code class="language-ocaml">let gensym_2 () =
-  stack_ [| gensym() 
-         ; gensym () |]
-</code></pre>
-<pre><code class="language-rust">fn gensym_2() -&gt; &amp;[String] {
+<img style="position: absolute; top: -0.25em; right: -0.25em; z-index:100;" src="./assets/ferris.svg" width="100px" height="100px">
+<pre class="does-not-compile"><code class="language-rust">fn gensym_2&lt;'a&gt;() -&gt; &amp;'a [String] {
   let arena = Arena::new();
-  let syms = 
-    arena.alloc([gensym(), gensym()]);
-  return syms;
+  return arena.alloc(
+    [gensym(), gensym()]
+  );
 }
 </code></pre>
 </div>
-<p><span>We can't return a value pointing to memory in our local region, it gets cleaned up on return!</span></p>
+<div center-at-unpause pause></div>
+<p><code>stack_</code><span> allocates the array local to </span><code>gensym_2</code><span>, but we actually want it to be allocated local to </span><code>perf_critical</code><span>, </span><em><span>the caller.</span></em></p>
 <div up-at-unpause pause></div>
 <pre><code class="language-ocaml">let gensym_2 () =
   exclave_ [| gensym () ; gensym () |]
 </code></pre>
-<p><code>exclave_</code><span> allocates the value in the caller's local region</span></p>
-<div id="carousel-memory" carousel pause>
+<p><code>exclave_</code><span> allocates the value in the caller’s local region</span></p>
+<div pause></div>
+<div id="carousel-memory">
 <img class="first" style="display: block;" src="./assets/symbols-to-callers-local-1.svg" />
 <img class="second" style="display: none;" src="./assets/symbols-to-callers-local-2.svg" />
 </div>
@@ -2102,12 +2096,12 @@ slip.setClass(el, "does-not-compile", true)</script>
                        ^^^^^^^^^
 Error: called function may allocate
 </code></pre>
-<p><span>In the second half of the tutorial we'll make </span><code>gensym</code><span> zero alloc</span></p>
+<p><span>In the second half of the tutorial we’ll make </span><code>gensym</code><span> zero alloc</span></p>
 <div up-at-unpause pause></div>
 <h2 id="oxcaml-so-far"><a class="anchor" aria-hidden="true" href="#oxcaml-so-far"></a><span>OxCaml So Far</span></h2>
-<p><span>We've seen new keywords like </span><code>stack_</code><span> and </span><code>exclave_</code><span> that provide control over memory allocation</span></p>
+<p><span>We’ve seen new keywords like </span><code>stack_</code><span> and </span><code>exclave_</code><span> that provide control over memory allocation</span></p>
 <div pause></div>
-<p><span>We've also seen new annotations, like </span><code>@ local</code><span> and </span><code>@ global</code></p>
+<p><span>We’ve also seen new annotations, like </span><code>@ local</code><span> and </span><code>@ global</code></p>
 <div pause></div>
 <p><span>Which can appear on let bindings</span></p>
 <pre><code class="language-ocaml">let perf_critical () = 
@@ -2143,7 +2137,7 @@ els.forEach((el) => {
 <p><span>Example properties</span></p>
 <ul>
 <li>
-<p><span>A value doesn't escape the region</span></p>
+<p><span>A value doesn’t escape the region</span></p>
 </li>
 <li>
 <p><span>A value is unique</span></p>
@@ -2183,7 +2177,7 @@ let perf_critical () =
 </tr>
 <tr>
 <td><code>local</code></td>
-<td><span>Value doesn't escape the region</span></td>
+<td><span>Value doesn’t escape the region</span></td>
 </tr>
 <tr>
 <td><code>global</code></td>
@@ -2218,14 +2212,19 @@ let gensym_n par n =
 <script type=slip-script exec-at-unpause pause>
 let el = document.querySelector("#unsafe-gensym-n");
 slip.setClass(el, "does-not-compile", true)</script>
-<pre><code class="language-text">Domain 1                    Domain 2
---------                    --------
-!count (0)                  
-                            !count (0)
-count := 0 + 1             
-                            count := 0 + 1
-!count (1)             
-                            !count (1)
+<pre><code class="language-text">Domain 1           Domain 2
+---------------------------------
+!count (0)         
+---------------------------------
+                   !count (0)
+---------------------------------
+count := 0 + 1     
+---------------------------------
+                   count := 0 + 1
+---------------------------------
+!count (1)         
+---------------------------------
+                   !count (1)
 </code></pre>
 <p><span>Resulting array: </span><code>[| &quot;gsym_1&quot;; &quot;gsym_1&quot; |]</code><span> Duplicate symbols? Unexpected!</span></p>
 <div center-at-unpause pause></div>
@@ -2332,7 +2331,7 @@ slip.setStyle(el, "display", "none")</script>
 let el = document.querySelector("#contention-portability-container")
 slip.setClass(el, "cont-port-container", true)</script>
 <div pause></div>
-<p class="theorem"><span>References captured by portable functions are </span><code>contended</code></p>
+<p class="corollary"><span>References captured by portable functions are </span><code>contended</code></p>
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; align-items: start;">
 <pre id="gensym-par-array-code"><code class="language-ocaml">let gensym @ portable = 
   let count = ref 0 in
@@ -2391,7 +2390,7 @@ let foo par =
 <div pause></div>
 <p><span>Because </span><code>Atomic.t</code><span> provides synchronization, it crosses portability and contention</span></p>
 <div pause></div>
-<p><span>What if </span><code>fetch_and_add</code><span> didn't exist?</span></p>
+<p><span>What if </span><code>fetch_and_add</code><span> didn’t exist?</span></p>
 <pre><code class="language-ocaml">let gensym @ portable =
   let count = Atomic.make 0 in
   fun () -&gt;
@@ -2403,7 +2402,7 @@ let foo par =
 <p><span>Atomics prevent data races, </span><em><span>but not race conditions.</span></em><span> What we need is for the read and write to be a single atomic operation</span></p>
 <div up-at-unpause pause></div>
 <h3 id="capsules"><a class="anchor" aria-hidden="true" href="#capsules"></a><span>Capsules</span></h3>
-<p><span>If the </span><code>Atomic.fetch_and_add</code><span> function didn't exist, could we still write </span><code>gensym</code><span>?</span></p>
+<p><span>If the </span><code>Atomic.fetch_and_add</code><span> function didn’t exist, could we still write </span><code>gensym</code><span>?</span></p>
 <div pause></div>
 <p id="capsules" class="definition" title="Capsules"><span>Associate mutable state with locks, ensuring exclusive access. Capsules use the type system to track which values have access.</span></p>
 <div id="capsules" pause></div>
@@ -2437,7 +2436,7 @@ let foo par =
 <div class="remark">
 <p><strong><span>Session resumes at 1600:</span></strong><span> </span><em><span>program in OxCaml and ask the experts anything!</span></em><br/></p>
 <p><strong><span>OxCaml “office hours” daily:</span></strong><span> XXXX-XXXX @ the Jane Street booth</span><br/>
-<em><span>Can't make it?</span></em><span> Email me at </span><a href="mailto:gavinleroy@brown.edu"><code>gavinleroy@brown.edu</code></a></p>
+<em><span>Can’t make it?</span></em><span> Email me at </span><a href="mailto:gavinleroy@brown.edu"><code>gavinleroy@brown.edu</code></a></p>
 </div>
 <p><span>OxCaml provides </span><em><span>safe control</span></em><span> over performance-critical aspects of program behavior</span></p>
 <ul>

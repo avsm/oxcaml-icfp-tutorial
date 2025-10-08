@@ -44,6 +44,10 @@ body {
   font-size: 1em;
 }
 
+pre {
+  margin: 0.5em 0 0.5em 0;
+}
+
 pre, code {
   font-family: "Fira Mono", monospace;
   font-size: 0.85em;
@@ -92,27 +96,14 @@ table td, th {
   }
 
   code&, code {
-    border: 3px solid #FF43A4;
+    border: 2px solid #FF43A4;
 
-    &::after {
+    &.language-ocaml::after {
       position: absolute; top: -2em; right: 0;
       content: url(assets/oxcaml.svg);
       height: 100px;
       width: 100px;
     }
-    /*
-    &.language-rust::after {
-      content: url(assets/ferris.svg);
-      height: 100px;
-      width: 100px;
-    }
-
-    &.language-ocaml::after {
-      content: url(assets/oxcaml.svg);
-      height: 100px;
-      width: 100px;
-    }
-    */
   }
 }
 
@@ -362,9 +353,9 @@ h1:not(#slipshow-toc h1) {
   border: 1px solid #cccc00;
 }
 .corollary:before {
-  content: "Corollary.";
+  content: "Rule.";
   background-color: #cccc00;
 }
 .corollary[title]:before {
-  content: "Corollary: " attr(title) "";
+  content: "Rule: " attr(title) "";
 }

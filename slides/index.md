@@ -1,23 +1,15 @@
 # OxCaml: *safe control over program behavior*
 
-## ICFP Tutorial
+## ICFP’25 Tutorial
 
 Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino
 
 Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek
 
-<!-- {pause up} -->
-<!---->
-<!-- ## Types Provide Safety -->
-<!---->
-<!-- ```ocaml -->
-<!-- "hello" + 42 -->
-<!--  ^^^^^ -->
-<!-- Error: expression has type   -->
-<!--  string  -->
-<!-- but an expression was expected of type   -->
-<!--  int -->
-<!-- ``` -->
+<div style="margin-top: 6em;">
+
+Slides available online: [`gavinleroy.com/oxcaml-tutorial-icfp25`](https://gavinleroy.com/oxcaml-tutorial-icfp25/)
+</div>
 
 {pause up}
 
@@ -116,7 +108,7 @@ Every value is either `@ local` or `@ global`, the latter is the *OCaml default*
 
 {pause}
 
-A value is `@ local` if it doesn't escape the current region
+A value is `@ local` if it doesn’t escape the current region
 
 {pause}
 
@@ -132,9 +124,9 @@ let perf_critical () =
   ...
 ```
 
-We assert that `symbols` is local and doesn't escape the current region
+We assert that `symbols` is local and doesn’t escape the current region
 
-*How can we ensure that it's locally allocated?*
+*How can we ensure that it’s locally allocated?*
 
 {pause}
 
@@ -153,6 +145,32 @@ let perf_critical () =
 {pause}
 
 This turns the allocation site for `[| |]` into a *local allocation*
+
+{pause center}
+
+#### The Local Region
+
+The local region is still dynamically sized, but not GC managed. It's cleaned up on function exit
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+
+```ocaml
+let perf_critical () = 
+  let symbols  = stack_ 
+    [| gensym () ; gensym () |] in
+  ...
+```
+
+```rust
+fn perf_critical() {
+  let arena = Arena::new();
+  let symbols = 
+    arena.alloc([gensym(), gensym()]);
+  ...
+}
+```
+
+</div>
 
 {pause center}
 
@@ -236,40 +254,31 @@ let el = document.querySelector("#stack-allocation-escapes")
 slip.setClass(el, "does-not-compile", true)
 ```
 
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; position: relative;">
+
 ```
    |   stack_ [| gensym () ; gensym () |]
        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This value escapes its region.
 ```
 
-{pause center}
+<img style="position: absolute; top: -0.25em; right: -0.25em; z-index:100;" src="./assets/ferris.svg" width="100px" height="100px">
 
-`stack_` allocates the array local to `gensym_2`, but we actually want it to be allocated local to `perf_critical`, *the caller.*
-
-{pause center}
-
-#### The Local Region
-
-<div class="does-not-compile" style="display:grid; grid-template-columns:1fr 1fr; gap: 1em;">
-
-```ocaml
-let gensym_2 () =
-  stack_ [| gensym() 
-         ; gensym () |]
-```
-
+{.does-not-compile}
 ```rust
-fn gensym_2() -> &[String] {
+fn gensym_2<'a>() -> &'a [String] {
   let arena = Arena::new();
-  let syms = 
-    arena.alloc([gensym(), gensym()]);
-  return syms;
+  return arena.alloc(
+    [gensym(), gensym()]
+  );
 }
 ```
 
 </div>
 
-We can't return a value pointing to memory in our local region, it gets cleaned up on return!
+{pause center}
+
+`stack_` allocates the array local to `gensym_2`, but we actually want it to be allocated local to `perf_critical`, *the caller.*
 
 {pause up}
 
@@ -278,10 +287,11 @@ let gensym_2 () =
   exclave_ [| gensym () ; gensym () |]
 ```
 
-`exclave_` allocates the value in the caller's local region
+`exclave_` allocates the value in the caller’s local region
+
+{pause}
 
 {#carousel-memory}
-{pause carousel}
 > <img class="first" style="display: block;" src="./assets/symbols-to-callers-local-1.svg" />
 > <img class="second" style="display: none;" src="./assets/symbols-to-callers-local-2.svg" />
 
@@ -339,17 +349,17 @@ slip.setClass(el, "does-not-compile", true)
 Error: called function may allocate
 ```
 
-In the second half of the tutorial we'll make `gensym` zero alloc
+In the second half of the tutorial we’ll make `gensym` zero alloc
 
 {pause up}
 
 ## OxCaml So Far
 
-We've seen new keywords like `stack_` and `exclave_` that provide control over memory allocation
+We’ve seen new keywords like `stack_` and `exclave_` that provide control over memory allocation
 
 {pause}
 
-We've also seen new annotations, like `@ local` and `@ global`
+We’ve also seen new annotations, like `@ local` and `@ global`
 
 {pause}
 
@@ -409,7 +419,7 @@ els.forEach((el) => {
 
 Example properties
 
-- A value doesn't escape the region
+- A value doesn’t escape the region
 
 - A value is unique
 
@@ -451,7 +461,7 @@ let perf_critical () =
 
 | Mode | Property |
 |------|--------------------------|
-| `local` | Value doesn't escape the region |
+| `local` | Value doesn’t escape the region |
 | `global` |  |
 
 </div>
@@ -505,14 +515,19 @@ slip.setClass(el, "does-not-compile", true)
 ```
 
 ```text
-Domain 1                    Domain 2
---------                    --------
-!count (0)                  
-                            !count (0)
-count := 0 + 1             
-                            count := 0 + 1
-!count (1)             
-                            !count (1)
+Domain 1           Domain 2
+---------------------------------
+!count (0)         
+---------------------------------
+                   !count (0)
+---------------------------------
+count := 0 + 1     
+---------------------------------
+                   count := 0 + 1
+---------------------------------
+!count (1)         
+---------------------------------
+                   !count (1)
 ```
 
 Resulting array: `[| "gsym_1"; "gsym_1" |]` Duplicate symbols? Unexpected!
@@ -640,8 +655,8 @@ slip.setClass(el, "cont-port-container", true)
 
 {pause}
 
-{.theorem}
-  References captured by portable functions are `contended`
+{.corollary}
+References captured by portable functions are `contended`
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; align-items: start;">
 
@@ -732,7 +747,7 @@ Because `Atomic.t` provides synchronization, it crosses portability and contenti
 
 {pause}
 
-What if `fetch_and_add` didn't exist?
+What if `fetch_and_add` didn’t exist?
 
 ```ocaml
 let gensym @ portable =
@@ -751,7 +766,7 @@ Atomics prevent data races, *but not race conditions.* What we need is for the r
 
 ### Capsules
 
-If the `Atomic.fetch_and_add` function didn't exist, could we still write `gensym`?
+If the `Atomic.fetch_and_add` function didn’t exist, could we still write `gensym`?
 
 {pause}
 
@@ -805,7 +820,7 @@ and complete a short activity on OxCaml modes! This will help with the live prog
 > **Session resumes at 1600:** *program in OxCaml and ask the experts anything!*<br/>
 >
 > **OxCaml “office hours” daily:** XXXX-XXXX @ the Jane Street booth<br/>
-> *Can't make it?* Email me at [`gavinleroy@brown.edu`](mailto:gavinleroy@brown.edu)
+> *Can’t make it?* Email me at [`gavinleroy@brown.edu`](mailto:gavinleroy@brown.edu)
 
 OxCaml provides *safe control* over performance-critical aspects of program behavior
 

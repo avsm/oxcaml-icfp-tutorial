@@ -31,6 +31,3 @@ jobs:
 
       - name: Build Act 1
         run: opam exec -- dune build act1/
-
-      - name: Build Act 2
-        run: opam exec -- dune build act2/

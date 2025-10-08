@@ -1,3 +1,8 @@
+(* Exercise 1
+   ----------
+   Complete the implementation of [gensym_pair] function. 
+*)
+
 let gensym =
   let counter = ref 0 in
   fun () ->

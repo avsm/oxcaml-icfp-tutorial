@@ -1,0 +1,3 @@
+(executables
+ (names ex1_gensym_atomics ex1_gensym_atomics_solution)
+ (libraries parallel parallel.scheduler.work_stealing))

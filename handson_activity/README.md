@@ -12,10 +12,5 @@ We suggest following (soft) dependencies for the activities:
 graph LR
     act01[Activity 01: Data Races and TSAN] --> act02[Activity 02: Gensym Atomics]
     act02 --> act03[Activity 03: Gensym Capsules]
-    act04[Activity 04: Merge Sort]
-
-    style act01 fill:#e1f5ff
-    style act02 fill:#e1f5ff
-    style act03 fill:#e1f5ff
-    style act04 fill:#fff9e1
+    act04[Activity 04: Zero Alloc Merge Sort]
 ```

@@ -30,4 +30,4 @@ jobs:
         run: opam install -y core parallel 
 
       - name: Build Act 1
-        run: opam exec -- dune build act1/
+        run: opam exec -- dune build handson_activity/act01_data_races_and_tsan/

@@ -1,0 +1,3 @@
+(executable
+ (name merge_sort)
+ (libraries base))

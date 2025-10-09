@@ -1,4 +1,0 @@
-(executables
- (names tree_average_parallel quicksort_parallel array_sum_parallel simple_fork_join)
- (libraries parallel parallel.scheduler.work_stealing basement unix stdio)
- (modes native))

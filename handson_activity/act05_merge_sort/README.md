@@ -23,4 +23,5 @@ invaluable resource for this activity.
   always write your own version of these functions with the right mode
   annotations.
 * `exclave_` is your friend. Our solution uses `exclave_` to allocate in the caller
-  stack frame.
+  local region.
+

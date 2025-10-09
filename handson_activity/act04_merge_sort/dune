@@ -1,0 +1,3 @@
+(executables
+ (names merge_sort merge_sort_solution merge_sort_reference)
+ (libraries base))

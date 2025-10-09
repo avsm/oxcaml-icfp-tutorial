@@ -1,6 +1,16 @@
-# Walk through
+# Data races and thread sanitizer
 
-## Q1
+The goal of this activity is to understand data races and detect them using
+thread sanitizer (TSAN), a dynamic analysis tool for detecting data races. While
+OxCaml is designed to statically catch data races, it is useful to understand
+the nature of the programs that do have data races. To this end, we will use the
+following compiler switches:
+
+* 5.3.0 -- vanilla OCaml 5.3.0 compiler
+* 5.3.0+tsan -- OCaml 5.3.0 compiler with TSAN support that is capable of
+    detecting data races dynamically.
+
+## GenSym
 
 Consider the following program:
 
@@ -39,7 +49,7 @@ gsym_10000
 ```
 
 > What goes wrong when `gensym` is called in parallel from two different
-threads?
+[domains](https://ocaml.org/manual/5.3/parallelism.html#s:par_domains)?
 
 See `q1_gensym_unsafe_parallel.ml`.
 
@@ -107,6 +117,10 @@ first function in the backtraces both refer to the same location
 `q1_gensym_unsafe_parallel.ml:4`, which is the assignment to `count` reference
 cell.
 
-TSAN is a dynamic data race detector. Only detects races that are encountered at runtime.
+TSAN is a dynamic data race detector. Only detects races that are encountered at
+runtime.
 
 > Can we statically detect this race condition?
+
+Yes, we can! OxCaml permits data-race-free parallel programming by statically
+disallowing data races.

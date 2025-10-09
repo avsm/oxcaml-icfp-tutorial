@@ -1,6 +1,6 @@
 (* Exercise 1
    ----------
-   Complete the implementation of [gensym_pair] function. 
+   Complete the implementation of [gensym_pair] function.
 *)
 
 let gensym =
@@ -20,7 +20,12 @@ let fork_join_demo par =
 
 let gensym_pair par =
   (* Generate a pair of symbols using parallel calls to [gensym] using
-    [fork_join2]. Do you need to update [gensym]? *)
+    [fork_join2].
+
+     Do you need to update [gensym]? Use OxCaml Atomics module:
+     (https://github.com/oxcaml/oxcaml/blob/main/stdlib/atomic.mli to get a
+     correct implementation.
+  *)
   let (s1,s2) = failwith "Not implemented" in
   assert (s1 <> s2)
 

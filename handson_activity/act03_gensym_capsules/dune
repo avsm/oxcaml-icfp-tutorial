@@ -1,0 +1,3 @@
+(executables
+ (names gensym_capsules gensym_capsules_solution)
+ (libraries portable parallel parallel.scheduler.work_stealing))

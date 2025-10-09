@@ -1,12 +1,12 @@
 # Hands-on Activities
 
 Each activity is contained in its own folder. Each folder contains a `dune` file
-and a `README.md` file with instructions. `dune build` withing each directory
+and a `README.md` file with instructions. `dune build` within each directory
 will build the activity.
 
 ## Activity dependencies
 
-We suggest following (soft) dependencies for the activities:
+We suggest the following (soft) dependencies for the activities:
 
 ```mermaid
 graph LR

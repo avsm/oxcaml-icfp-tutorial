@@ -13,7 +13,7 @@ let fork_join_demo par =
   assert (l = "left" && r = "right")
 
 let gensym_pair par =
-  let (s1,s2) =
+  let #(s1,s2) =
     Parallel.fork_join2 par
     (fun _ -> gensym ())
     (fun _ -> gensym ())

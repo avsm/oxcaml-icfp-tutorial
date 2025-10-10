@@ -11,7 +11,7 @@ let gensym =
 
 (* Here's an example of how to use fork_join2 *)
 let fork_join_demo par =
-  let (l,r) =
+  let #(l,r) =
     Parallel.fork_join2 par
       (fun _ -> "left")
       (fun _ -> "right")
@@ -33,8 +33,7 @@ let gensym_pair par =
 let run_parallel ~f =
   let module Scheduler = Parallel_scheduler_work_stealing in
   let scheduler = Scheduler.create () in
-  let monitor = Parallel.Monitor.create_root () in
-  let result = Scheduler.schedule scheduler ~monitor ~f in
+  let result = Scheduler.parallel scheduler ~f in
   Scheduler.stop scheduler;
   result
 

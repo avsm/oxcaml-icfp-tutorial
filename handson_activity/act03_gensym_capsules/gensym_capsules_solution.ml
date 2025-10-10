@@ -2,66 +2,63 @@
    stick with the non-atomic references in `gensym`. Use capsules to ensure that
    gensym is safe for parallel access (and the code will compile). *)
 
-open Basement
+open Await
 
 (* Here is an example snippet to show how to create and use capsules. *)
 let safe_ref (init : int) =
-  (* Create capsule and extract key to bind the type variable *)
-  let (P key) = Capsule.create () in
-  (* Create encapsulated data bound to the same key type *)
+  (* Create a capsule guarded by a mutex and unpack to get the brand. *)
+  let (P mutex) = Capsule.Mutex.create () in
+  (* Create encapsulated data bound to the same key brand. *)
   let r = Capsule.Data.create (fun () -> ref init) in
-  (* Create mutex from key *)
-  let mutex = Capsule.Mutex.create key in
 
-  (* Access with lock *)
-  let read () =
-    Capsule.Mutex.with_lock mutex ~f:(fun password ->
-        Capsule.Data.extract r ~password ~f:(fun (r : int ref) -> !r))
+  (* Access with a lock, requires a capability to wait/block. *)
+  let read (w : Await.t) =
+    Capsule.Mutex.with_lock w mutex ~f:(fun access ->
+      let r = Capsule.Data.unwrap r ~access in !r)
   in
-  let write (v : int) =
-    Capsule.Mutex.with_lock mutex ~f:(fun password ->
-        Capsule.Data.extract r ~password ~f:(fun r -> r := v))
+  let write (w : Await.t) (v : int) =
+    Capsule.Mutex.with_lock w mutex ~f:(fun access ->
+      let r = Capsule.Data.unwrap r ~access in r := v)
   in
   (read, write)
 
 let gensym =
-  (* Create capsule and extract key to bind the type variable *)
-  let (P key) = Capsule.create () in
+  (* Create a capsule guarded by a mutex and unpack to get the brand. *)
+  let (P mutex) = Capsule.Mutex.create () in
 
-  (* Create encapsulated data bound to the same key type *)
+  (* Create encapsulated data bound to the same key brand. *)
   let counter = Capsule.Data.create (fun () -> ref 0) in
 
-  (* Create mutex from key *)
-  let mutex = Capsule.Mutex.create key in
-
-  (* Access with lock *)
-  let fetch_and_incr () =
-    Capsule.Mutex.with_lock mutex ~f:(fun password ->
-        Capsule.Data.extract counter ~password ~f:(fun c ->
-            c := !c + 1;
-            !c))
+  (* Access the data, requiring a capability to wait/block. *)
+  let fetch_and_incr (w : Await.t) =
+    Capsule.Mutex.with_lock w mutex ~f:(fun access ->
+      let c = Capsule.Data.unwrap ~access counter in
+      c := !c + 1; !c)
   in
-  fun () -> "gsym_" ^ Int.to_string (fetch_and_incr ())
+  fun w -> "gsym_" ^ Int.to_string (fetch_and_incr w)
 
-let parallel_read_write par =
-  let r = safe_ref 0 in
-  let read, write = r in
-  Parallel.fork_join2 par
-    (fun _ ->
-      for _ = 1 to 1000 do
-        ignore (read ())
-      done)
-    (fun _ ->
-      for i = 1 to 1000 do
-        write i
-      done)
-  |> ignore
+  let parallel_read_write par =
+    let r = safe_ref 0 in
+    let read, write = r in
+    let #((), ()) = 
+      Parallel.fork_join2 par
+        (fun _ -> Await_blocking.with_await Terminator.never ~f:(fun w ->
+          for _ = 1 to 1000 do
+            ignore (read w)
+          done))
+        (fun _ -> Await_blocking.with_await Terminator.never ~f:(fun w ->
+          for i = 1 to 1000 do
+            write w i
+          done))
+    in ()
 
 (* Test that gensym produces distinct symbols in parallel *)
 
 let gensym_pair par =
-  let s1, s2 =
-    Parallel.fork_join2 par (fun _ -> gensym ()) (fun _ -> gensym ())
+  let #(s1, s2) =
+    Parallel.fork_join2 par
+      (fun _ -> Await_blocking.with_await Terminator.never ~f:gensym)
+      (fun _ -> Await_blocking.with_await Terminator.never ~f:gensym)
   in
   assert (s1 <> s2)
 
@@ -69,8 +66,7 @@ let gensym_pair par =
 let run_parallel ~f =
   let module Scheduler = Parallel_scheduler_work_stealing in
   let scheduler = Scheduler.create () in
-  let monitor = Parallel.Monitor.create_root () in
-  let result = Scheduler.schedule scheduler ~monitor ~f in
+  let result = Scheduler.parallel scheduler ~f in
   Scheduler.stop scheduler;
   result
 

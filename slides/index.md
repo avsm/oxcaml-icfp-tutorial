@@ -1,13 +1,23 @@
-# OxCaml: *safe control over program behavior*
+# OxCaml: *safe control over program behavior* <img style="position: absolute; top:0.5em;left:0.5em;rotate:-15deg;" src="./assets/oxcaml-normal.svg" width="150" height="150" />
 
 ## ICFP’25 Tutorial
 
 Gavin Gray, Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino,
 Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek
 
-<div style="margin-top: 6em;">
 
-Slides available online: [`gavinleroy.com/oxcaml-tutorial-icfp25`](https://gavinleroy.com/oxcaml-tutorial-icfp25/)
+<div style="display: grid; grid-template-columns: auto auto;">
+
+  *Before we start, answer this quick question!* 
+
+
+  <figure>
+    <img src="./assets/qr.svg" width="400" height="400" />
+    <figcaption>
+        <a href="https://tinyurl.com/icfp25-oxcaml"><code>tinyurl.com/icfp25-oxcaml</code></a>
+    </figcaption>
+  </figure>
+
 </div>
 
 {pause up}
@@ -36,7 +46,7 @@ Slides available online: [`gavinleroy.com/oxcaml-tutorial-icfp25`](https://gavin
 let gensym =
   let count = ref 0 in
   fun () ->
-    count := !count + 1 ;
+    count := !count + 1;
     "gsym_" ^ (Int.to_string !count) 
 ```
 
@@ -44,7 +54,7 @@ let gensym =
 
 ```ocaml
 let perf_critical () = 
-  let symbols = [| gensym () ; gensym () |] in
+  let symbols = [| gensym (); gensym () |] in
   ...
 ```
 
@@ -71,7 +81,7 @@ What “bad thing” could happen given these allocations? {pause} *garbage-coll
 
 {pause center}
 
-What do we need to know/do to avoid this?
+What does the compiler need to know/do to avoid these heap allocations?
 
 {pause}
 
@@ -89,7 +99,7 @@ What do we need to know/do to avoid this?
 
 ```ocaml
 let perf_critical () = 
-  let symbols = [| gensym () ; gensym () |] in
+  let symbols = [| gensym (); gensym () |] in
   ...
 ```
 
@@ -97,7 +107,7 @@ let perf_critical () =
 
 ```ocaml
 let perf_critical () = 
-  let symbols @ local = [| gensym () ; gensym () |] in
+  let symbols @ local = [| gensym (); gensym () |] in
   ...
 ```
 
@@ -119,7 +129,7 @@ A value `@ local` *could be locally allocated*
 
 ```ocaml
 let perf_critical () = 
-  let symbols @ local = [| gensym () ; gensym () |] in
+  let symbols @ local = [| gensym (); gensym () |] in
   ...
 ```
 
@@ -137,7 +147,7 @@ OxCaml provides new keywords for allocation: `stack_` and `exclave_`
 
 ```ocaml
 let perf_critical () = 
-  let symbols @ local = stack_ [| gensym () ; gensym () |] in
+  let symbols @ local = stack_ [| gensym (); gensym () |] in
   ...
 ```
 
@@ -151,14 +161,16 @@ This turns the allocation site for `[| |]` into a *local allocation*
 
 The local region is still dynamically sized, but not GC managed. It's cleaned up on function exit
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+<div style="position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
 
 ```ocaml
 let perf_critical () = 
   let symbols  = stack_ 
-    [| gensym () ; gensym () |] in
+    [| gensym (); gensym () |] in
   ...
 ```
+
+<img style="position: absolute; top: 0; right: 0;" src="./assets/rust.svg" width="64px" height="64px" />
 
 ```rust
 fn perf_critical() {
@@ -216,7 +228,7 @@ We may want to use a helper function to create the array
 {#stack-not-allocation-site}
 ```ocaml
 let gensym_2 () = 
-  [| gensym () ; gensym () |]
+  [| gensym (); gensym () |]
 
 let perf_critical () = 
   let symbols @ local = stack_ (gensym_2 ()) in
@@ -240,7 +252,7 @@ Error: This expression is not an allocation site.
 {#stack-allocation-escapes}
 ```ocaml
 let gensym_2 () = 
-  stack_ [| gensym () ; gensym () |]
+  stack_ [| gensym (); gensym () |]
 
 let perf_critical () = 
   let symbols @ local = gensym_2 () in
@@ -256,22 +268,24 @@ slip.setClass(el, "does-not-compile", true)
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; position: relative;">
 
 ```
-   |   stack_ [| gensym () ; gensym () |]
+   |   stack_ [| gensym (); gensym () |]
        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This value escapes its region.
 ```
 
-<img style="position: absolute; top: -0.25em; right: -0.25em; z-index:100;" src="./assets/ferris.svg" width="100px" height="100px">
-
-{.does-not-compile}
-```rust
-fn gensym_2<'a>() -> &'a [String] {
-  let arena = Arena::new();
-  return arena.alloc(
-    [gensym(), gensym()]
-  );
-}
-```
+{pause}
+> <img style="position: absolute; top: -0.25em; right: -0.25em; z-index:100;" src="./assets/ferris.svg" width="100px" height="100px">
+>
+> {.does-not-compile}
+>
+> ```rust
+> fn gensym_2<'a>() -> &'a [String] {
+>   let arena = Arena::new();
+>   return arena.alloc(
+>     [gensym(), gensym()]
+>   );
+> }
+> ```
 
 </div>
 
@@ -283,7 +297,7 @@ fn gensym_2<'a>() -> &'a [String] {
 
 ```ocaml
 let gensym_2 () =
-  exclave_ [| gensym () ; gensym () |]
+  exclave_ [| gensym (); gensym () |]
 ```
 
 `exclave_` allocates the value in the caller’s local region
@@ -301,6 +315,40 @@ let second = document.querySelector("#carousel-memory .second")
 slip.setStyle(first, "display", "none")
 slip.setStyle(second, "display", "block")
 ```
+
+{pause}
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em">
+
+{.does-not-compile}
+```ocaml
+let perf_critical () = 
+  let (f, s) = stack_ 
+    (gensym (), gensym ()) in  
+  ...
+  f  
+```
+
+{pause}
+```ocaml
+let genint =
+  let count = ref 0 in
+  fun () -> 
+    count := !count + 1;
+    !count
+
+let perf_critical () =  
+  let (f, s) = stack_ 
+    (genint (), genint ()) in 
+  ...
+  f
+```
+
+</div>
+
+{pause center}
+
+Integers aren't allocated, so there's no meaningful difference between `int @ local` and `int @ global`
 
 {pause up}
 
@@ -348,7 +396,7 @@ slip.setClass(el, "does-not-compile", true)
 Error: called function may allocate
 ```
 
-In the second half of the tutorial we’ll make `gensym` zero alloc
+Making `gensym` zero alloc is left as an exercise
 
 {pause up}
 
@@ -373,9 +421,9 @@ let perf_critical () =
 And in type signatures
 
 ```ocaml
-val init : int -> f:(int -> 'a) -> 'a array @ global
-
 val gensym_2 : unit -> string array @ local
+
+val Array.init : int -> f:(int -> 'a) -> 'a array @ global
 ```
 
 {pause}
@@ -450,7 +498,7 @@ with a *submoding* relationship of `global < local`
 
 ```ocaml
 let gensym_2 (): string array @ global = 
-  [| gensym () ; gensym () |]
+  [| gensym (); gensym () |]
 
 let perf_critical () = 
   let symbols @ local = gensym_2 () in
@@ -461,7 +509,7 @@ let perf_critical () =
 | Mode | Property |
 |------|--------------------------|
 | `local` | Value doesn’t escape the region |
-| `global` |  |
+| **`global`** |  |
 
 </div>
 
@@ -472,6 +520,36 @@ The `@ local` is a *mode annotation*
 Every mode axis has a default value for backwards compatibility with OCaml
 
 The default for locality is the `global` mode
+
+{pause up}
+
+### Mode Crossing: When Modes and Types Work Together
+
+```ocaml
+let genint =
+  let count = ref 0 in
+  fun () -> 
+    count := !count + 1;
+    !count
+
+let perf_critical () =  
+  let (f, s) = stack_ (genint (), genint ()) in 
+  ...
+  f
+```
+
+This works because integers *cross* locality
+
+{pause}
+
+Locality property: local values don’t escape the region
+
+{pause}
+
+In other words, *locally allocated* values don’t escape the region
+
+{.theorem}
+If a type upholds the properties of a mode axis, values of that type mode cross
 
 {pause up}
 
@@ -498,7 +576,7 @@ module Par_array = Parallel.Arrays.Array
 let gensym =
   let count = ref 0 in
   fun () ->
-    count := !count + 1 ;
+    count := !count + 1;
     "gsym_" ^ (Int.to_string !count)
 
 let gensym_n par n =
@@ -553,10 +631,10 @@ The code does not compile in OxCaml, but does in OCaml
 ```ocaml
 let gensym = 
   let count = ref 0 in (* (2) shared memory *)
-  (* (4)     ^^^^^^                  
-         bare ref: no synchronization *)
+  (*          ^^^^^                  
+     (4) bare ref: no synchronization *)
   fun () -> 
-    count := !count + 1 ; (* (3) a write *)
+    count := !count + 1; (* (3) a write *)
     "gsym_" ^ (Int.to_string !count)
 
 let gen_many par n = 
@@ -593,26 +671,26 @@ There are two key mode axes for expressing parallelism constraints
 {#contention-portability-container}
 > {.port-area}
 > > ### Portability<span class="subtitle">: Is this value (function) safe to share across domains?</span>
-> > 
+> >
 > > <div style="display: grid; place-items: center;">
-> > 
+> >
 > > `portable < nonportable`
-> > 
-> > 
+> >
+> >
 > > | Mode  | Property |
 > > |------|--------------------------|
-> > | `nonportable` | Cannot be shared across domains |
+> > | **`nonportable`** | Value isn’t shared across domains |
 > > | `portable` |  |
-> > 
+> >
 > > </div>
-> > 
+> >
 > > {pause-block #gensym-par-array-aside}
 > > > {.does-not-compile}
 > > > ```ocaml
 > > > let gensym @ portable = 
 > > >   let count = ref 0 in
 > > >   fun () -> 
-> > >     count := !count + 1 ;
+> > >     count := !count + 1;
 > > >     "gsym_" ^ (Int.to_string !count)
 > > >
 > > > let gen_many par n = 
@@ -622,27 +700,27 @@ There are two key mode axes for expressing parallelism constraints
 > > > ```ocaml
 > > > val Par_array.init : Parallel_kernel.t -> int 
 > > >   -> f:(int -> 'a @ portable) @ portable (* <-- *)
-> > >   -> t
+> > >   -> Par_array.t
 > > > ```
-> > 
+> >
 > > {pause exec}
 > > ```slip-script
 > > let el = document.querySelector("#gensym-par-array-aside")
 > > slip.setStyle(el, "display", "none")
 > > ```
-> > 
+> >
 > {.cont-area}
 > > ### Contention<span class="subtitle">: What access do I have to this shared memory?</span>
-> > 
+> >
 > > <div style="display: grid; place-items: center;">
-> > 
+> >
 > > `uncontended < shared < contended`
-> > 
+> >
 > > | Mode | Property |
 > > |------|--------------------------|
-> > | `contended` | Cannot *read* or *write* |
-> > | `shared` | Cannot *write* |
-> > | `uncontended` | |
+> > | `contended` | Value isn’t read or written |
+> > | `shared` | Value isn’t written |
+> > | **`uncontended`** | |
 > > 
 > > </div>
 
@@ -664,7 +742,7 @@ References captured by portable functions are `contended`
 let gensym @ portable = 
   let count = ref 0 in
   fun () -> 
-    count := !count + 1 ;
+    count := !count + 1;
     "gsym_" ^ (Int.to_string !count)
 ```
 
@@ -675,49 +753,13 @@ slip.setClass(el, "does-not-compile", true)
 ```
 
 ```
-  count := !count + 1 ;
+  count := !count + 1;
   ^^^^^
 Error: This value is contended but 
 expected to be uncontended.
 ```
 
 </div>
-
-{pause up}
-
-### Mode Crossing: When Modes and Types Work Together
-
-```ocaml
-let gensym_n n = 
-  List.init n ~f:(fun _ -> genysm ())
-
-let print_hd (ls @ contended) = 
-  let gsym :: _ = ls in
-  Stdio.print_endline gsym
-
-let foo par = 
-  let ls = gensym_n 10 in
-  let (), () = 
-    Parallel.fork_join2 par 
-      (fun () -> print_hd ls)
-      (fun () -> print_hd ls)
-  in ()
-```
-
-`ls` is contended because multiple domains hold a reference to it. One domain may have uncontended access to `ls`, *a potential write!*
-
-{pause}
-
-... wait, `string list` is an immutable type, nobody can write to it ...
-
-{pause}
-
-We say that values of type `string list` *mode cross* along the contention axis
-
-{pause}
-
-{.theorem}
-If a type upholds the properties of a mode axis, values of that type mode cross
 
 {pause up}
 
@@ -742,9 +784,27 @@ let gensym @ portable =
 
 {pause}
 
-Because `Atomic.t` provides synchronization, it crosses portability and contention
+*Why is using `Atomic` safe but `ref` was not? Why does this code type check?*
 
 {pause}
+
+`Atomic.t` provides synchronization, therefore it **crosses portability and contention**
+
+{pause}
+
+```ocaml
+let make_gensym ?(prefix = "gsym_") () = 
+  let count = Atomic.make 0 in 
+  fun () -> 
+    let n = Atomic.fetch_and_add count 1 in 
+    prefix ^ (Int.to_string n)
+```
+
+{pause}
+
+Can’t race on immutable types, they cross contention
+
+{pause center}
 
 What if `fetch_and_add` didn’t exist?
 
@@ -752,12 +812,12 @@ What if `fetch_and_add` didn’t exist?
 let gensym @ portable =
   let count = Atomic.make 0 in
   fun () ->
-    Atomic.incr count ;
+    Atomic.incr count;
     let n = Atomic.get count in
     "gsym_" ^ (Int.to_string n)
 ```
 
-{pause center}
+{pause}
 
 Atomics prevent data races, *but not race conditions.* What we need is for the read and write to be a single atomic operation
 
@@ -780,10 +840,11 @@ Associate mutable state with locks, ensuring exclusive access. Capsules use the 
 
 ```ocaml
 let gensym = 
-  (* 1. Create encapsulated data *)
-  let counter = Capsule.Data.create (fun () -> ref 0) in
+  (* 1. Create capsule and get key *)
+  let (P key) = Capsule.create () in
 
-  let (P key) = Capsule.create () in (* 2. Create capsule and get key *)
+  (* 2. Create encapsulated data *)
+  let counter = Capsule.Data.create (fun () -> ref 0) in
 
   let mutex = Capsule.Mutex.create key in (* 3. Create mutex from key *)
 
@@ -791,7 +852,7 @@ let gensym =
   let fetch_and_incr () =
     Capsule.Mutex.with_lock mutex ~f:(fun password ->
       Capsule.Data.extract counter ~password ~f:(fun c ->
-        c := !c + 1 ; !c))
+        c := !c + 1; !c))
   in
   fun () -> "gsym_" ^ (Int.to_string (fetch_and_incr ()))
 ```
@@ -800,25 +861,24 @@ let gensym =
 
 # Activity!
 
-Visit 
+We’ve prepared a short activity to help you gauge your understanding of OxCaml
 
 <div style="display: grid; place-items: center;">
 
-[TODO]()
+[`tinyurl.com/oxcaml-icfp25-activity`](https://tinyurl.com/oxcaml-icfp25-activity)
+
+<img src="./assets/qr-activity.svg" width="500px" height="500px" />
 
 </div>
-
-
-and complete a short activity on OxCaml modes! This will help with the live programming in the next half
 
 {pause up}
 
 # OxCaml Summary <img style="float: right;" src="./assets/oxcaml-normal.svg" width="200px" height="200px" />
 
 {.remark}
-> **Session resumes at 1600:** *program in OxCaml and ask the experts anything!*<br/>
+> We have programming activities for those who want to muck around
 >
-> **OxCaml “office hours” daily:** XXXX-XXXX @ the Jane Street booth<br/>
+> **OxCaml “office hours” daily:** 3-4 @ the Jane Street booth<br/>
 > *Can’t make it?* Email me at [`gavinleroy@brown.edu`](mailto:gavinleroy@brown.edu)
 
 OxCaml provides *safe control* over performance-critical aspects of program behavior

@@ -484,7 +484,7 @@ Example properties
 
 {pause}
 
-Modes provide safety and control to OxCaml: data-race freedom, safe control over memory allocation and layout.
+Modes provide safety to OxCaml: data-race freedom, and memory safety
 
 {pause up}
 
@@ -611,7 +611,7 @@ Resulting array: `[| "gsym_1"; "gsym_1" |]` Duplicate symbols? Unexpected!
 
 {pause center}
 
-It is *unsafe* to run `gensym` on multiple domains, we want to statically prevent his from happening
+It is *unsafe* to run `gensym` on multiple domains, we want to statically prevent this from happening
 
 {pause}
 
@@ -876,7 +876,9 @@ We’ve prepared a short activity to help you gauge your understanding of OxCaml
 # OxCaml Summary <img style="float: right;" src="./assets/oxcaml-normal.svg" width="200px" height="200px" />
 
 {.remark}
-> We have programming activities for those who want to muck around
+> We have programming activities for those who want to muck around: 
+>
+> <div style="display:grid; place-items:center;"><a href="https://github.com/oxcaml/tutorial-icfp25"><code>github.com/oxcaml/tutorial-icfp25</code></a></div>
 >
 > **OxCaml “office hours” daily:** 3-4 @ the Jane Street booth<br/>
 > *Can’t make it?* Email me at [`gavinleroy@brown.edu`](mailto:gavinleroy@brown.edu)

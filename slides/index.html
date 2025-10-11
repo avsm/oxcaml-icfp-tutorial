@@ -2189,7 +2189,7 @@ els.forEach((el) => {
 <li><em><span>and many more ...</span></em></li>
 </ul>
 <div pause></div>
-<p><span>Modes provide safety and control to OxCaml: data-race freedom, safe control over memory allocation and layout.</span></p>
+<p><span>Modes provide safety to OxCaml: data-race freedom, and memory safety</span></p>
 <div up-at-unpause pause></div>
 <h2 id="the-locality-axis"><a class="anchor" aria-hidden="true" href="#the-locality-axis"></a><span>The Locality Axis</span></h2>
 <p><span>The locality axis has two modes: </span><code>local</code><span> and </span><code>global</code></p>
@@ -2280,7 +2280,7 @@ count := 0 + 1
 </code></pre>
 <p><span>Resulting array: </span><code>[| &quot;gsym_1&quot;; &quot;gsym_1&quot; |]</code><span> Duplicate symbols? Unexpected!</span></p>
 <div center-at-unpause pause></div>
-<p><span>It is </span><em><span>unsafe</span></em><span> to run </span><code>gensym</code><span> on multiple domains, we want to statically prevent his from happening</span></p>
+<p><span>It is </span><em><span>unsafe</span></em><span> to run </span><code>gensym</code><span> on multiple domains, we want to statically prevent this from happening</span></p>
 <div pause></div>
 <p><span>The code does not compile in OxCaml, but does in OCaml</span></p>
 <div up-at-unpause pause></div>
@@ -2474,7 +2474,8 @@ expected to be uncontended.
 <div up-at-unpause pause></div>
 <h1 id="oxcaml-summary"><a class="anchor" aria-hidden="true" href="#oxcaml-summary"></a><span>OxCaml Summary </span><img style="float: right;" src="./assets/oxcaml-normal.svg" width="200px" height="200px" /></h1>
 <div class="remark">
-<p><span>We have programming activities for those who want to muck around</span></p>
+<p><span>We have programming activities for those who want to muck around:</span></p>
+<div style="display:grid; place-items:center;"><a href="https://github.com/oxcaml/tutorial-icfp25"><code>github.com/oxcaml/tutorial-icfp25</code></a></div>
 <p><strong><span>OxCaml “office hours” daily:</span></strong><span> 3-4 @ the Jane Street booth</span><br/>
 <em><span>Can’t make it?</span></em><span> Email me at </span><a href="mailto:gavinleroy@brown.edu"><code>gavinleroy@brown.edu</code></a></p>
 </div>

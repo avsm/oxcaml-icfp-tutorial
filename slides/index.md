@@ -2,9 +2,8 @@
 
 ## ICFP’25 Tutorial
 
-Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino
-
-Gavin Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek
+Gavin Gray, Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino,
+Will Crichton, Shriram Krishnamurthi, Patrick Ferris, Max Slater, Megan Del Vecchio, Nadia Razek
 
 <div style="margin-top: 6em;">
 

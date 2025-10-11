@@ -1,0 +1,3 @@
+(executables
+ (names quicksort quicksort_solution quicksort_reference)
+ (libraries base portable parallel parallel.scheduler.work_stealing))

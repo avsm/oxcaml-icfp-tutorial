@@ -1,2 +1,2 @@
-(lang dune 3.20)
+(lang dune 3.18)
 (using mdx 0.4)

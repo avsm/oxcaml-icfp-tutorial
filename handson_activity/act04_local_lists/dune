@@ -1,0 +1,2 @@
+(executables
+ (names test_local_list test_local_list_solution))

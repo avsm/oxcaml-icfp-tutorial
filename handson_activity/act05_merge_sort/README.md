@@ -6,8 +6,7 @@ our code does not allocate on the heap.
 
 The file `merge_sort_referecence.ml` contains a standard implementation of merge
 sort for reference. The file `merge_sort.ml` is where you will implement your
-zero-allocation version of merge sort. The file `merge_sort_solution.ml`
-contains a possible solution.
+zero-allocation version of merge sort. 
 
 [OxCaml Stack Allocation](https://oxcaml.org/documentation/stack-allocation/intro/) will be an
 invaluable resource for this activity.

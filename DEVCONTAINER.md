@@ -12,7 +12,7 @@ This project provides two development container configurations:
 
 **Time**: ~5-10 minutes (download only)
 **Config**: `.devcontainer/devcontainer.json`
-**Image**: `kayceesrk/oxcaml-icfp-tutorial:latest` (8.88 GB)
+**Image**: `oxcaml/tutorial-icfp25:latest` (8.88 GB)
 
 ## 🔧 Local Build
 

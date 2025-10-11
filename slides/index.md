@@ -834,27 +834,21 @@ Associate mutable state with locks, ensuring exclusive access. Capsules use the 
 
 {pause #capsules}
 
-⚠️ **A simpler interface is coming, the following may hurt your eyes** ⚠️
-
-{pause}
-
 ```ocaml
-let gensym = 
-  (* 1. Create capsule and get key *)
-  let (P key) = Capsule.create () in
+let gensym =
+  (* Create a capsule guarded by a mutex and unpack to get the brand. *)
+  let (P mutex) = Capsule.Mutex.create () in
 
-  (* 2. Create encapsulated data *)
+  (* Create encapsulated data bound to the same key brand. *)
   let counter = Capsule.Data.create (fun () -> ref 0) in
 
-  let mutex = Capsule.Mutex.create key in (* 3. Create mutex from key *)
-
-  (* 4. Access with lock *)
-  let fetch_and_incr () =
-    Capsule.Mutex.with_lock mutex ~f:(fun password ->
-      Capsule.Data.extract counter ~password ~f:(fun c ->
-        c := !c + 1; !c))
+  (* Access the data, requiring a capability to wait/block. *)
+  let fetch_and_incr (w : Await.t) =
+    Capsule.Mutex.with_lock w mutex ~f:(fun access ->
+      let c = Capsule.Data.unwrap ~access counter in
+      c := !c + 1; !c)
   in
-  fun () -> "gsym_" ^ (Int.to_string (fetch_and_incr ()))
+  fun w -> "gsym_" ^ Int.to_string (fetch_and_incr w)
 ```
 
 {pause up}

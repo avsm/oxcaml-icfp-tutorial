@@ -1,13 +1,13 @@
 # A Guided Tour Through Oxidized Caml
 
-This will be held at ICFP/SPLASH 2025, with inputs variously from Anil
-Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino, Gavin
-Gray, Will Crichton, Shriram Krishnamurthi, Patrick Ferris.
+This will be held at ICFP/SPLASH 2025, with inputs variously from Gavin Gray,
+Anil Madhavapeddy, KC Sivaramkrishnan, Richard Eisenberg, Chris Casinghino,
+Will Crichton, Shriram Krishnamurthi, Patrick Ferris.
 
 URL: https://conf.researchr.org/track/icfp-splash-2025/icfp-splash-2025-tutorials
-Status: WIP, unreleased
 
-We have two 90 minute chunks, first at 1400-1530 and then 1600-1730.
+We have two 90 minute sessions that repeat, first at 1400-1530 and then
+1600-1730.
 
 # Getting started
 
@@ -20,7 +20,7 @@ Use the pre-built Docker Hub image.
 The docker image has three switches installed
 
 ```bash
-opam@d573f5771225:/workspaces/oxcaml-icfp-tutorial$ opam switch
+opam@d573f5771225:/workspaces/tutorial-icfp$ opam switch
 #  switch      compiler                                          description
 →  5.2.0+ox    ocaml-variants.5.2.0+ox                           5.2.0+ox
    5.3         ocaml-base-compiler.5.3.0                         5.3

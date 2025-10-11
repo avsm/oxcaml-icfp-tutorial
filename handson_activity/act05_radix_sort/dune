@@ -1,0 +1,3 @@
+(executables
+ (names radix_sort radix_sort_solution radix_sort_reference)
+ (libraries base))

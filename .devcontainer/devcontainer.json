@@ -1,5 +1,5 @@
 {
-        "image": "ghcr.io/avsm/oxcaml-icfp-tutorial:main",
+        "image": "ghcr.io/oxcaml/tutorial-icfp25:main",
         "name": "OxCaml Playground",
         "userEnvProbe": "loginInteractiveShell",
         "customizations": {

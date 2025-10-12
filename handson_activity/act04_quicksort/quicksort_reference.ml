@@ -3,7 +3,7 @@ open! Base
 module Printf = struct
   include Printf
 
-  let printf fmt = Printf.ksprintf print_string fmt
+  let printf fmt = Printf.ksprintf (Stdio.Out_channel.output_string Stdio.stdout) fmt
 end
 
 module Slice = struct 
@@ -15,7 +15,7 @@ module Slice = struct
   let set {array; start; _} i v = 
     array.(start + i) <- v
 
-  let length {array: _; start; stop} = 
+  let length {start; stop; _} = 
     stop - start
 
   let sub t ~i ~j = 

@@ -14,5 +14,5 @@ RUN opam init -a --disable-sandboxing --yes --bare && \
 
 RUN opam install --switch=5.3.0 -y dune && \
 	opam install --switch=5.3.0+tsan -y dune && \
-	opam install -y ocamlformat merlin ocaml-lsp-server odoc utop core parallel && \
+	opam install -y ocamlformat merlin ocaml-lsp-server utop core parallel && \
   opam clean -a

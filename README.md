@@ -20,7 +20,7 @@ Use the pre-built Docker Hub image.
 The docker image has three switches installed
 
 ```bash
-opam@d573f5771225:/workspaces/tutorial-icfp$ opam switch
+$ opam switch
 #  switch      compiler                                          description
 →  5.2.0+ox    ocaml-variants.5.2.0+ox                           5.2.0+ox
    5.3         ocaml-base-compiler.5.3.0                         5.3
@@ -32,7 +32,7 @@ opam@d573f5771225:/workspaces/tutorial-icfp$ opam switch
 ## Conceptual Model (60m)
 
 - What: A slides introduction to OxCaml, these slides try to capture
-  "the spirit" of the language rather than its exact implementation as  
+  "the spirit" of the language rather than its exact implementation as
   that might change. This should leave participants with an
   understanding of: what is a  mode, locality, local allocation, contention,
   portability, and how these work together for data-race freedom.
@@ -67,7 +67,7 @@ could use OxCaml in their own code. Participants will get the opportunity to
 try it out "in the wild" and get their questions answered from experts (that
 doesn’t happen often). We also get a sense of how the conceptual model, as
 taught, translates to programmers code. We can keep an eye on what problems
-participants have, and if there's reoccurring difficulties that should  
+participants have, and if there's reoccurring difficulties that should
 be better addressed in future material.
 
 *Why not do hands-on activities interspersed with the slides?*  Some participants

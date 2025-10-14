@@ -11,7 +11,7 @@ let gensym =
 
 (* Here's an example of how to use fork_join2 *)
 let fork_join_demo par =
-  let #(l,r) =
+  let (l,r) =
     Parallel.fork_join2 par
       (fun _ -> "left")
       (fun _ -> "right")
